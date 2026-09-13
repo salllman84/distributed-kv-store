@@ -6,6 +6,7 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <sstream>
 
 namespace raft {
 
@@ -19,7 +20,7 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
       commit_index_(0),
       last_applied_(0),
       max_log_size_(10), 
-      leader_lease_end_(std::chrono::steady_clock::time_point::min()), // <--- ADDED: Initialize expired
+      leader_lease_end_(std::chrono::steady_clock::time_point::min()),
       peers_(peers),
       store_(store),
       running_(false) {
@@ -120,15 +121,19 @@ void RaftNode::startElection() {
         state_ = NodeState::LEADER;
         next_index_.assign(10, log_.lastIndex() + 1); 
         match_index_.assign(10, 0);
-        // <--- ADDED: Establish initial lease upon winning single-node election
         leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
-        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
+        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" << std::flush;
         return;
     }
 
+    // --- DANGER ZONE: Temporarily unlock to perform blocking network I/O safely ---
     mtx_.unlock();
 
     network::Client client;
+    bool step_down = false;
+    uint64_t new_term = 0;
+    int votes_received = 0;
+
     for (const auto& peer : current_peers) {
         RequestVoteArgs args;
         args.term = saved_term;
@@ -137,7 +142,9 @@ void RaftNode::startElection() {
         args.last_log_term = last_log_term;
 
         std::string payload = common::Protocol::serializeRequestVote(args);
-        auto reply_str = client.sendRpc(peer.ip, peer.port, payload);
+        
+        // Timeout of 50ms so an offline node doesn't freeze the election
+        auto reply_str = client.sendRpc(peer.ip, peer.port, payload, 50);
 
         if (reply_str.has_value()) {
             std::istringstream iss(reply_str.value());
@@ -148,42 +155,50 @@ void RaftNode::startElection() {
                 bool granted;
                 iss >> reply_term >> granted;
 
-                std::unique_lock<std::mutex> lock(mtx_);
-                if (current_term_ != saved_term || state_ != NodeState::CANDIDATE) {
-                    return;
-                }
-                if (reply_term > current_term_) {
-                    current_term_ = reply_term;
-                    state_ = NodeState::FOLLOWER;
-                    voted_for_ = -1;
-                    current_leader_ = -1; 
-                    persistMetadata();
-                    return;
+                if (reply_term > saved_term) {
+                    step_down = true;
+                    new_term = reply_term;
                 }
                 if (granted) {
-                    votes++;
-                    if (votes > (current_peers.size() + 1) / 2) {
-                        state_ = NodeState::LEADER;
-                        next_index_.assign(10, log_.lastIndex() + 1); 
-                        match_index_.assign(10, 0);
-                        // <--- ADDED: Establish initial lease upon winning distributed election
-                        leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
-                        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
-                        return;
-                    }
+                    votes_received++;
                 }
             }
         }
     }
+
+    // --- SAFE ZONE: Relock mutex exactly once before modifying state ---
     mtx_.lock();
+
+    // 1. If we stepped down due to a higher term found during the network phase
+    if (step_down && new_term > current_term_) {
+        current_term_ = new_term;
+        state_ = NodeState::FOLLOWER;
+        voted_for_ = -1;
+        current_leader_ = -1;
+        persistMetadata();
+        return;
+    }
+
+    // 2. If state changed while we were unlocked (e.g. received an AppendEntries from a valid leader)
+    if (current_term_ != saved_term || state_ != NodeState::CANDIDATE) {
+        return;
+    }
+
+    // 3. Count votes
+    votes += votes_received;
+    if (votes > (current_peers.size() + 1) / 2) {
+        state_ = NodeState::LEADER;
+        next_index_.assign(10, log_.lastIndex() + 1); 
+        match_index_.assign(10, 0);
+        leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
+        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" << std::flush;
+    }
 }
 
 void RaftNode::sendHeartbeats() {
     uint64_t last_idx = log_.lastIndex();
     std::vector<PeerInfo> current_peers = peers_;
     uint64_t saved_term = current_term_;
-
-    // <--- ADDED: Capture exactly when the heartbeat RPCs began
     auto lease_start_time = std::chrono::steady_clock::now();
 
     struct RPCContext {
@@ -244,11 +259,22 @@ void RaftNode::sendHeartbeats() {
         rpcs.push_back(ctx);
     }
 
+    // --- DANGER ZONE: Temporarily unlock to perform blocking network I/O safely ---
     mtx_.unlock();
 
     int acks = 1; // Self
+    bool step_down = false;
+    uint64_t new_term = 0;
+
+    struct ReplyInfo {
+        int peer_id;
+        bool success;
+        uint64_t target_next;
+        uint64_t target_match;
+    };
+    std::vector<ReplyInfo> valid_replies;
+
     network::Client client;
-    
     for (size_t i = 0; i < current_peers.size(); ++i) {
         const auto& peer = current_peers[i];
         const auto& ctx = rpcs[i];
@@ -264,58 +290,61 @@ void RaftNode::sendHeartbeats() {
             if (type == "SNAPSHOT_REPLY") {
                 uint64_t reply_term;
                 iss >> reply_term;
-
-                std::unique_lock<std::mutex> lock(mtx_);
-                if (reply_term > current_term_) {
-                    current_term_ = reply_term;
-                    state_ = NodeState::FOLLOWER;
-                    voted_for_ = -1;
-                    current_leader_ = -1;
-                    persistMetadata();
-                    return;
+                if (reply_term > saved_term) {
+                    step_down = true;
+                    new_term = reply_term;
+                } else {
+                    valid_replies.push_back({peer.id, true, ctx.target_next_idx, ctx.target_match_idx});
                 }
-                next_index_[peer.id] = ctx.target_next_idx;
-                match_index_[peer.id] = ctx.target_match_idx;
             }
             else if (type == "APPEND_REPLY") {
                 uint64_t reply_term;
                 bool success;
                 iss >> reply_term >> success;
 
-                std::unique_lock<std::mutex> lock(mtx_);
-                if (reply_term > current_term_) {
-                    current_term_ = reply_term;
-                    state_ = NodeState::FOLLOWER;
-                    voted_for_ = -1;
-                    current_leader_ = -1; 
-                    persistMetadata();
-                    return;
-                }
-                
-                if (success) {
-                    next_index_[peer.id] = ctx.target_next_idx;
-                    match_index_[peer.id] = ctx.target_match_idx;
-                    acks++;
+                if (reply_term > saved_term) {
+                    step_down = true;
+                    new_term = reply_term;
                 } else {
-                    if (next_index_[peer.id] > 1) {
-                        next_index_[peer.id]--;
-                    }
+                    valid_replies.push_back({peer.id, success, ctx.target_next_idx, ctx.target_match_idx});
                 }
             }
         }
     }
 
+    // --- SAFE ZONE: Relock mutex exactly once before modifying state ---
     mtx_.lock();
     
-    if (state_ == NodeState::LEADER && current_term_ == saved_term) {
-        if (acks > (current_peers.size() + 1) / 2) {
-            // <--- ADDED: Renew lease since a majority acknowledged the heartbeat
-            leader_lease_end_ = lease_start_time + election_timeout_;
-            
-            if (last_idx > commit_index_) {
-                commit_index_ = last_idx;
-                applyLogsToStore(); 
+    if (step_down && new_term > current_term_) {
+        current_term_ = new_term;
+        state_ = NodeState::FOLLOWER;
+        voted_for_ = -1;
+        current_leader_ = -1;
+        persistMetadata();
+        return;
+    }
+
+    if (state_ != NodeState::LEADER || current_term_ != saved_term) {
+        return;
+    }
+
+    for (const auto& r : valid_replies) {
+        if (r.success) {
+            next_index_[r.peer_id] = r.target_next;
+            match_index_[r.peer_id] = r.target_match;
+            acks++;
+        } else {
+            if (next_index_[r.peer_id] > 1) {
+                next_index_[r.peer_id]--;
             }
+        }
+    }
+
+    if (acks > (current_peers.size() + 1) / 2) {
+        leader_lease_end_ = lease_start_time + election_timeout_;
+        if (last_idx > commit_index_) {
+            commit_index_ = last_idx;
+            applyLogsToStore(); 
         }
     }
 }
@@ -432,7 +461,7 @@ InstallSnapshotReply RaftNode::handleInstallSnapshot(const InstallSnapshotArgs& 
         last_applied_ = args.last_included_index;
         
         std::cout << "[RaftNode " << node_id_ << "] Installed Snapshot from Leader (Index offset now: " 
-                  << args.last_included_index << ")\n" <<std::flush;
+                  << args.last_included_index << ")\n" << std::flush;
     }
 
     return reply;
@@ -454,14 +483,13 @@ void RaftNode::applyLogsToStore() {
                 std::string key, val;
                 iss >> key >> val;
                 store_.set(key, val); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n";
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n" << std::flush;
             }
-            // <--- ADDED: Handle the DEL command
             else if (op == "DEL") {
                 std::string key;
                 iss >> key;
-                store_.remove(key); // Inserts the Tombstone
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: DEL " << key << "\n";
+                store_.remove(key); 
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: DEL " << key << "\n" << std::flush;
             }
             
             applied_any = true;
@@ -478,15 +506,15 @@ void RaftNode::checkAndTriggerSnapshot() {
     
     if (physical_size >= max_log_size_) {
         std::cout << "[RaftNode " << node_id_ << "] Log size (" << physical_size 
-                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n"<<std::flush;
+                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n" << std::flush;
                   
         std::string snap_file = "node_" + std::to_string(node_id_) + ".snap";
         
         if (store_.saveSnapshot(snap_file)) {
             log_.compact(last_applied_, log_.getTerm(last_applied_));
-            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n"<<std::flush;
+            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n" << std::flush;
         } else {
-            std::cerr << "[RaftNode " << node_id_ << "] ERROR: Failed to write state machine snapshot!\n";
+            std::cerr << "[RaftNode " << node_id_ << "] ERROR: Failed to write state machine snapshot!\n" << std::flush;
         }
     }
 }
@@ -515,7 +543,6 @@ int RaftNode::getLeaderId() const {
     return (state_ == NodeState::LEADER) ? node_id_ : current_leader_;
 }
 
-// <--- ADDED: Linearizability check
 bool RaftNode::hasValidLease() const {
     std::unique_lock<std::mutex> lock(mtx_);
     if (state_ != NodeState::LEADER) return false;

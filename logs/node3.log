@@ -1,2 +1,731 @@
 [RaftNode 3] Started in FOLLOWER state (Term: 0)
 [Node 3] Distributed KV & Raft Node booting on port 8083...
+[Server] epoll multiplexer started on port 8083...
+[RaftNode 3] Granted vote to Node 1 for Term 1
+[RaftNode 3] COMMITTED to Store: system=async_test
+[RaftNode 3] COMMITTED to Store: concurrent_key1=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key4=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key2=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_0.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key5=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key7=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key6=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key8=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key9=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_1.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key10=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key11=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key12=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key13=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key14=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_2.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_3_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key3=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key16=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key17=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key18=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key19=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_4.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key15=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key20=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key22=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key23=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key24=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_5.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_6_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key25=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key21=epoll_works
+[RaftNode 3] Log size (62) exceeded threshold. Triggering snapshot at index 26...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key27=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key28=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key26=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_7.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key30=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key29=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key32=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key31=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key34=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_8.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_9_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key35=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key33=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key37=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key38=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key39=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_10.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key40=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key41=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key42=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key43=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key44=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_11.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_12_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key45=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key46=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key47=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key48=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key36=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_13.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key49=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key51=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key52=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key53=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key54=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_14.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_15_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key55=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key50=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key57=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key58=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key59=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_16.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key60=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key56=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key61=epoll_works
+[RaftNode 3] Log size (58) exceeded threshold. Triggering snapshot at index 62...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key65=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key62=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_17.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_18_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key63=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key66=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key67=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key68=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key69=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_19.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key64=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key73=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key72=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key71=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key76=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_20.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_21_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key70=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key74=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key77=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key78=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key79=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_22.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key80=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key82=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key84=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key81=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key75=epoll_works
+[RaftNode 3] Log size (48) exceeded threshold. Triggering snapshot at index 84...
+[RaftNode 3] Compaction complete.
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_23.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_24_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key83=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key87=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key85=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key88=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key89=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_25.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key86=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key90=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key92=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key93=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key94=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_26.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_27_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key95=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key98=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key91=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key100=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key96=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_28.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key101=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key99=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key97=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key102=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key106=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_29.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_30_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key103=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key104=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key109=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key105=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key107=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_31.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key108=epoll_works
+[RaftNode 3] Log size (65) exceeded threshold. Triggering snapshot at index 110...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key113=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key110=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key112=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key111=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_32.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_33_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key114=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key116=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key115=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key117=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key121=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_34.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key119=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key118=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key124=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key120=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key122=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_35.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_36_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key127=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key123=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key125=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key130=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key126=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_37.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key128=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key133=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key134=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key135=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key131=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_38.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_39_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key129=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key136=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key137=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key138=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key139=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_40.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key140=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key141=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key142=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key143=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key145=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_41.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_42_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key144=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key146=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key132=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key147=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key148=epoll_works
+[RaftNode 3] Log size (59) exceeded threshold. Triggering snapshot at index 149...
+[RaftNode 3] Compaction complete.
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_43.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key152=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key149=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key150=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key153=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key154=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_44.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_45_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key155=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key151=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key157=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key158=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key156=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_46.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key160=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key161=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key162=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key163=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key164=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_47.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_48_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key165=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key166=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key168=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key167=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key159=epoll_works
+[RaftNode 3] Log size (56) exceeded threshold. Triggering snapshot at index 169...
+[RaftNode 3] Compaction complete.
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_49.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key172=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key169=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key170=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key173=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key174=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_50.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_51_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key175=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key176=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key177=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key178=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key179=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_52.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key180=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key181=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key171=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key183=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key184=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_53.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_54_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key185=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key186=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key187=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key188=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key189=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_55.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key190=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key191=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key192=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key193=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key194=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_56.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_57_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key195=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key196=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key197=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key198=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key199=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_58.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key200=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key201=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key202=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key203=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key204=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_59.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_60_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key206=epoll_works
+[RaftNode 3] Log size (57) exceeded threshold. Triggering snapshot at index 205...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key208=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key182=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key205=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key209=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_61.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key210=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key211=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key212=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key207=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key214=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_62.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_63_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key215=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key213=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key217=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key218=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key219=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_64.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key220=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key221=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key222=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key223=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key224=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_65.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_66_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key225=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key216=epoll_works
+[RaftNode 3] Log size (67) exceeded threshold. Triggering snapshot at index 226...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key229=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key226=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key227=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_67.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key230=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key232=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key231=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key233=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key234=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_68.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_69_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key235=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key236=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key237=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key238=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key228=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_70.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key240=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key241=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key239=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key243=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key244=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_71.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_72_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key245=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key246=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key247=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key248=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key249=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_73.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key250=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key251=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key252=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key253=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key254=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_74.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_75_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key255=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key256=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key257=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key258=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key259=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_76.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key260=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key261=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key262=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key263=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key264=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_77.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_78_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key265=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key266=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key267=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key268=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key269=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_79.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key270=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key271=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key272=epoll_works
+[RaftNode 3] Log size (86) exceeded threshold. Triggering snapshot at index 272...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key275=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key242=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_80.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_81_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key273=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key276=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key277=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key278=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key279=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_82.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key280=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key274=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key281=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key283=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key282=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_83.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_84_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key285=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key286=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key287=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key288=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key284=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_85.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key290=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key291=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key292=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key293=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key294=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_86.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_87_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key295=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key296=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key297=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key289=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key299=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_88.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key300=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key301=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key302=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key303=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key304=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_89.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_90_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key305=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key306=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key307=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key308=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key309=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_91.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key310=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key311=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key312=epoll_works
+[RaftNode 3] Log size (83) exceeded threshold. Triggering snapshot at index 312...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key315=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key298=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_92.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_93_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key313=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key316=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key317=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key318=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key319=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_94.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key320=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key321=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key322=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key323=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key325=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_95.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_96_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key314=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key324=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key326=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key328=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key329=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_97.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key327=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key330=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key332=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key333=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key334=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_98.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_99_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key331=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key336=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key337=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key338=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key339=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_100.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key335=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key341=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key342=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key343=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key344=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_101.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_102_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key345=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key346=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key347=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key348=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key349=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_103.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key350=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key351=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key352=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key353=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key354=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_104.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_105_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key340=epoll_works
+[RaftNode 3] Log size (92) exceeded threshold. Triggering snapshot at index 355...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key358=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key355=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key356=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key360=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_106.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key359=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key361=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key362=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key363=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key364=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_107.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_108_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key366=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key365=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key367=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key368=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key369=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_109.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key370=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key357=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key372=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key373=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key371=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_110.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_111_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key375=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key376=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key374=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key378=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key379=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_112.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key380=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key381=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key377=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key383=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key384=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_113.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_114_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key385=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key386=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key387=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key388=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key389=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_115.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key390=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key391=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key392=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key393=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key394=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_116.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_117_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key395=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key396=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key397=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key398=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key399=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_118.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key382=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key401=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key402=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key403=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key400=epoll_works
+[RaftNode 3] Log size (93) exceeded threshold. Triggering snapshot at index 404...
+[RaftNode 3] Compaction complete.
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_119.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_120_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key407=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key406=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key405=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key408=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key409=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_121.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key410=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key411=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key412=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key413=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key414=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_122.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_123_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key415=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key416=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key404=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key418=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key419=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_124.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key420=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key421=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key423=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key417=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key422=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_125.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_126_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key424=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key426=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key427=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key428=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key429=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_127.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key430=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key431=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key432=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key433=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key434=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_128.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_129_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key435=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key436=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key437=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key438=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key439=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_130.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key440=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key441=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key442=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key444=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key443=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_131.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_132_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key445=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key446=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key447=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key448=epoll_works
+[RaftNode 3] Log size (90) exceeded threshold. Triggering snapshot at index 448...
+[RaftNode 3] Compaction complete.
+[RaftNode 3] COMMITTED to Store: concurrent_key451=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_133.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key425=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key449=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key450=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key452=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key454=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_134.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_135_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key455=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key456=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key457=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key458=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key459=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_136.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key460=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key461=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key462=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key463=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key453=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_137.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_138_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key465=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key466=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key464=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key468=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key469=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_139.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key467=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key471=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key472=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key473=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key474=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_140.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_141_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key475=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key476=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key477=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key478=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key479=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_142.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key480=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key481=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key482=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key483=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key484=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_143.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_144_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key485=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key486=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key487=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key488=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key489=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_145.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key490=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key491=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key492=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key493=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key470=epoll_works
+[RaftNode 3] Log size (53) exceeded threshold. Triggering snapshot at index 494...
+[RaftNode 3] Compaction complete.
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_146.sst
+[LSM-Tree Node 3] Starting Major Compaction of 3 SSTables...
+[LSM-Tree Node 3] Compaction complete. Reclaimed disk space. Generated: node_3_sstable_147_compacted.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key495=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key496=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key494=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key498=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key500=epoll_works
+[LSM-Tree Node 3] Flushed MemTable to disk: node_3_sstable_148.sst
+[RaftNode 3] COMMITTED to Store: concurrent_key499=epoll_works
+[RaftNode 3] COMMITTED to Store: concurrent_key497=epoll_works

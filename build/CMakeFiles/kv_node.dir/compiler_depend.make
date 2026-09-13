@@ -395,9 +395,12 @@ CMakeFiles/kv_node.dir/src/main.cpp.o: /home/systemEngineer/systems-engineering/
   /usr/include/c++/15/bits/stl_iterator.h \
   /usr/include/c++/15/bits/stl_iterator_base_funcs.h \
   /usr/include/c++/15/bits/stl_iterator_base_types.h \
+  /usr/include/c++/15/bits/stl_map.h \
+  /usr/include/c++/15/bits/stl_multimap.h \
   /usr/include/c++/15/bits/stl_pair.h \
   /usr/include/c++/15/bits/stl_queue.h \
   /usr/include/c++/15/bits/stl_tempbuf.h \
+  /usr/include/c++/15/bits/stl_tree.h \
   /usr/include/c++/15/bits/stl_uninitialized.h \
   /usr/include/c++/15/bits/stl_vector.h \
   /usr/include/c++/15/bits/streambuf.tcc \
@@ -455,6 +458,7 @@ CMakeFiles/kv_node.dir/src/main.cpp.o: /home/systemEngineer/systems-engineering/
   /usr/include/c++/15/istream \
   /usr/include/c++/15/limits \
   /usr/include/c++/15/locale \
+  /usr/include/c++/15/map \
   /usr/include/c++/15/mutex \
   /usr/include/c++/15/new \
   /usr/include/c++/15/numbers \
@@ -657,6 +661,8 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
   /usr/include/asm-generic/int-ll64.h \
+  /usr/include/asm-generic/ioctl.h \
+  /usr/include/asm-generic/ioctls.h \
   /usr/include/asm-generic/posix_types.h \
   /usr/include/asm-generic/socket.h \
   /usr/include/asm-generic/sockios.h \
@@ -768,6 +774,7 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/cstdint \
   /usr/include/c++/15/cstdio \
   /usr/include/c++/15/cstdlib \
+  /usr/include/c++/15/cstring \
   /usr/include/c++/15/ctime \
   /usr/include/c++/15/cwchar \
   /usr/include/c++/15/cwctype \
@@ -812,14 +819,19 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/ctype.h \
   /usr/include/endian.h \
   /usr/include/errno.h \
+  /usr/include/fcntl.h \
   /usr/include/features-time64.h \
   /usr/include/features.h \
   /usr/include/limits.h \
   /usr/include/linux/close_range.h \
   /usr/include/linux/errno.h \
+  /usr/include/linux/falloc.h \
+  /usr/include/linux/ioctl.h \
   /usr/include/linux/limits.h \
+  /usr/include/linux/openat2.h \
   /usr/include/linux/posix_types.h \
   /usr/include/linux/sched/types.h \
+  /usr/include/linux/sockios.h \
   /usr/include/linux/stddef.h \
   /usr/include/linux/types.h \
   /usr/include/locale.h \
@@ -831,6 +843,8 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/stdint.h \
   /usr/include/stdio.h \
   /usr/include/stdlib.h \
+  /usr/include/string.h \
+  /usr/include/strings.h \
   /usr/include/syscall.h \
   /usr/include/time.h \
   /usr/include/unistd.h \
@@ -838,6 +852,8 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/wctype.h \
   /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
   /usr/include/x86_64-linux-gnu/asm/errno.h \
+  /usr/include/x86_64-linux-gnu/asm/ioctl.h \
+  /usr/include/x86_64-linux-gnu/asm/ioctls.h \
   /usr/include/x86_64-linux-gnu/asm/posix_types.h \
   /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
   /usr/include/x86_64-linux-gnu/asm/socket.h \
@@ -852,16 +868,22 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/x86_64-linux-gnu/bits/endian.h \
   /usr/include/x86_64-linux-gnu/bits/endianness.h \
   /usr/include/x86_64-linux-gnu/bits/environments.h \
+  /usr/include/x86_64-linux-gnu/bits/epoll.h \
   /usr/include/x86_64-linux-gnu/bits/errno.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl.h \
   /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
   /usr/include/x86_64-linux-gnu/bits/floatn.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
   /usr/include/x86_64-linux-gnu/bits/in.h \
+  /usr/include/x86_64-linux-gnu/bits/ioctl-types.h \
+  /usr/include/x86_64-linux-gnu/bits/ioctls.h \
   /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
   /usr/include/x86_64-linux-gnu/bits/local_lim.h \
   /usr/include/x86_64-linux-gnu/bits/locale.h \
   /usr/include/x86_64-linux-gnu/bits/long-double.h \
+  /usr/include/x86_64-linux-gnu/bits/openat2.h \
   /usr/include/x86_64-linux-gnu/bits/posix1_lim.h \
   /usr/include/x86_64-linux-gnu/bits/posix2_lim.h \
   /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
@@ -875,6 +897,7 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/x86_64-linux-gnu/bits/sockaddr.h \
   /usr/include/x86_64-linux-gnu/bits/socket.h \
   /usr/include/x86_64-linux-gnu/bits/socket_type.h \
+  /usr/include/x86_64-linux-gnu/bits/stat.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
@@ -882,6 +905,7 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
   /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
   /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+  /usr/include/x86_64-linux-gnu/bits/struct_stat.h \
   /usr/include/x86_64-linux-gnu/bits/syscall.h \
   /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
   /usr/include/x86_64-linux-gnu/bits/time.h \
@@ -939,11 +963,14 @@ CMakeFiles/kv_node.dir/src/network/server.cpp.o: /home/systemEngineer/systems-en
   /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
   /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+  /usr/include/x86_64-linux-gnu/sys/epoll.h \
+  /usr/include/x86_64-linux-gnu/sys/ioctl.h \
   /usr/include/x86_64-linux-gnu/sys/select.h \
   /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
   /usr/include/x86_64-linux-gnu/sys/socket.h \
   /usr/include/x86_64-linux-gnu/sys/syscall.h \
   /usr/include/x86_64-linux-gnu/sys/time.h \
+  /usr/include/x86_64-linux-gnu/sys/ttydefaults.h \
   /usr/include/x86_64-linux-gnu/sys/types.h \
   /usr/lib/gcc/x86_64-linux-gnu/15/include/limits.h \
   /usr/lib/gcc/x86_64-linux-gnu/15/include/stdarg.h \
@@ -1248,8 +1275,6 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/bits/functexcept.h \
   /usr/include/c++/15/bits/functional_hash.h \
   /usr/include/c++/15/bits/hash_bytes.h \
-  /usr/include/c++/15/bits/hashtable.h \
-  /usr/include/c++/15/bits/hashtable_policy.h \
   /usr/include/c++/15/bits/invoke.h \
   /usr/include/c++/15/bits/ios_base.h \
   /usr/include/c++/15/bits/istream.tcc \
@@ -1304,9 +1329,12 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/bits/stl_iterator.h \
   /usr/include/c++/15/bits/stl_iterator_base_funcs.h \
   /usr/include/c++/15/bits/stl_iterator_base_types.h \
+  /usr/include/c++/15/bits/stl_map.h \
+  /usr/include/c++/15/bits/stl_multimap.h \
   /usr/include/c++/15/bits/stl_numeric.h \
   /usr/include/c++/15/bits/stl_pair.h \
   /usr/include/c++/15/bits/stl_tempbuf.h \
+  /usr/include/c++/15/bits/stl_tree.h \
   /usr/include/c++/15/bits/stl_uninitialized.h \
   /usr/include/c++/15/bits/stl_vector.h \
   /usr/include/c++/15/bits/streambuf.tcc \
@@ -1319,7 +1347,6 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/bits/uniform_int_dist.h \
   /usr/include/c++/15/bits/unique_lock.h \
   /usr/include/c++/15/bits/unique_ptr.h \
-  /usr/include/c++/15/bits/unordered_map.h \
   /usr/include/c++/15/bits/uses_allocator.h \
   /usr/include/c++/15/bits/uses_allocator_args.h \
   /usr/include/c++/15/bits/utility.h \
@@ -1362,6 +1389,7 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/istream \
   /usr/include/c++/15/limits \
   /usr/include/c++/15/locale \
+  /usr/include/c++/15/map \
   /usr/include/c++/15/mutex \
   /usr/include/c++/15/new \
   /usr/include/c++/15/numbers \
@@ -1399,7 +1427,6 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o: /home/systemEngineer/systems-en
   /usr/include/c++/15/tuple \
   /usr/include/c++/15/type_traits \
   /usr/include/c++/15/typeinfo \
-  /usr/include/c++/15/unordered_map \
   /usr/include/c++/15/vector \
   /usr/include/ctype.h \
   /usr/include/endian.h \
@@ -1854,17 +1881,31 @@ CMakeFiles/kv_node.dir/src/main.cpp.o:
 
 /usr/include/c++/15/tr1/beta_function.tcc:
 
-/usr/include/c++/15/pstl/glue_numeric_defs.h:
-
 /usr/include/c++/15/pstl/execution_defs.h:
 
 /usr/include/c++/15/bits/stl_numeric.h:
 
 /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/network/client.hpp:
 
+/usr/include/arpa/inet.h:
+
+/usr/include/x86_64-linux-gnu/sys/epoll.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
+
+/usr/include/x86_64-linux-gnu/asm/ioctls.h:
+
 /usr/include/string.h:
 
-/usr/include/arpa/inet.h:
+/usr/include/linux/sockios.h:
+
+/usr/include/c++/15/pstl/glue_numeric_defs.h:
+
+/usr/include/linux/ioctl.h:
+
+/usr/include/fcntl.h:
+
+/usr/include/asm-generic/ioctls.h:
 
 /usr/include/x86_64-linux-gnu/c++/15/bits/messages_members.h:
 
@@ -1875,6 +1916,8 @@ CMakeFiles/kv_node.dir/src/main.cpp.o:
 /usr/include/x86_64-linux-gnu/bits/types/stack_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/sigval_t.h:
+
+/usr/include/x86_64-linux-gnu/bits/ioctls.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/siginfo_t.h:
 
@@ -1907,6 +1950,8 @@ CMakeFiles/kv_node.dir/src/main.cpp.o:
 /usr/include/c++/15/span:
 
 /usr/include/c++/15/shared_mutex:
+
+/usr/include/c++/15/map:
 
 /usr/include/c++/15/locale:
 
@@ -2018,6 +2063,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 
 /usr/include/c++/15/ext/atomicity.h:
 
+/usr/include/c++/15/bits/stl_tree.h:
+
 /usr/include/c++/15/bits/enable_special_members.h:
 
 /usr/include/limits.h:
@@ -2080,6 +2127,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 
 /usr/include/c++/15/bits/string_view.tcc:
 
+/usr/include/x86_64-linux-gnu/bits/struct_stat.h:
+
 /usr/include/c++/15/bits/streambuf_iterator.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_sigstack.h:
@@ -2093,6 +2142,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
 /usr/include/c++/15/bits/stl_queue.h:
+
+/usr/include/c++/15/bits/stl_multimap.h:
 
 /usr/include/c++/15/bits/stl_uninitialized.h:
 
@@ -2111,6 +2162,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/c++/15/bits/ranges_cmp.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o:
+
+/usr/include/x86_64-linux-gnu/bits/ioctl-types.h:
 
 /usr/include/c++/15/bits/range_access.h:
 
@@ -2137,6 +2190,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/x86_64-linux-gnu/sys/single_threaded.h:
 
 /usr/include/c++/15/bits/ranges_base.h:
+
+/usr/include/x86_64-linux-gnu/bits/epoll.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/time_t.h:
 
@@ -2203,6 +2258,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/linux/limits.h:
 
 /usr/include/x86_64-linux-gnu/bits/posix2_lim.h:
+
+/usr/include/x86_64-linux-gnu/sys/ioctl.h:
 
 /usr/include/syscall.h:
 
@@ -2271,6 +2328,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/asm-generic/types.h:
 
 /usr/include/c++/15/bits/basic_ios.tcc:
+
+/usr/include/linux/openat2.h:
 
 /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/common/thread_pool.hpp:
 
@@ -2343,6 +2402,8 @@ CMakeFiles/kv_node.dir/src/raft/consensus.cpp.o:
 /usr/include/c++/15/bits/stl_tempbuf.h:
 
 /usr/include/c++/15/bits/deque.tcc:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl.h:
 
 /usr/include/c++/15/bits/char_traits.h:
 
@@ -2428,6 +2489,8 @@ CMakeFiles/kv_node.dir/src/network/socket.cpp.o:
 
 /usr/include/c++/15/bits/ostream.h:
 
+/usr/include/x86_64-linux-gnu/asm/ioctl.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
 
 /usr/include/c++/15/functional:
@@ -2445,6 +2508,8 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o:
 /usr/include/c++/15/limits:
 
 /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
+
+/usr/include/linux/falloc.h:
 
 /usr/include/x86_64-linux-gnu/bits/in.h:
 
@@ -2466,11 +2531,15 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o:
 
 /usr/include/c++/15/semaphore:
 
+/usr/include/asm-generic/ioctl.h:
+
 /usr/include/c++/15/atomic:
 
 /usr/include/c++/15/ratio:
 
 /usr/include/c++/15/stdexcept:
+
+/usr/include/x86_64-linux-gnu/bits/stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/sigstksz.h:
 
@@ -2504,9 +2573,13 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o:
 
 /usr/include/features-time64.h:
 
+/usr/include/x86_64-linux-gnu/bits/openat2.h:
+
 /usr/include/features.h:
 
 /usr/include/linux/posix_types.h:
+
+/usr/include/c++/15/bits/stl_map.h:
 
 /usr/include/c++/15/bits/locale_classes.h:
 
@@ -2651,6 +2724,8 @@ CMakeFiles/kv_node.dir/src/common/thread_pool.cpp.o:
 /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h:
 
 /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
+
+/usr/include/x86_64-linux-gnu/sys/ttydefaults.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h:
 
