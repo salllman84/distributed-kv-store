@@ -1,0 +1,5 @@
+/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles/kv_node.dir
+/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles/test_store.dir
+/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles/test_network.dir
+/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles/edit_cache.dir
+/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles/rebuild_cache.dir
