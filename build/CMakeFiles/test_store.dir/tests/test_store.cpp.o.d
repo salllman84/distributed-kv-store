@@ -1,8 +1,7 @@
-CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/raft/log.cpp \
+CMakeFiles/test_store.dir/tests/test_store.cpp.o: \
+ /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp \
  /usr/include/stdc-predef.h \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/raft/log.hpp \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/raft/state.hpp \
+ /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/store.hpp \
  /usr/include/c++/15/string /usr/include/c++/15/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \
@@ -122,22 +121,27 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/c++/15/bits/memory_resource.h /usr/include/c++/15/cstddef \
  /usr/include/c++/15/bits/uses_allocator.h \
  /usr/include/c++/15/bits/uses_allocator_args.h /usr/include/c++/15/tuple \
- /usr/include/c++/15/bits/ranges_util.h /usr/include/c++/15/vector \
- /usr/include/c++/15/bits/stl_uninitialized.h \
- /usr/include/c++/15/bits/stl_vector.h \
- /usr/include/c++/15/bits/stl_bvector.h \
- /usr/include/c++/15/bits/vector.tcc /usr/include/c++/15/cstdint \
+ /usr/include/c++/15/bits/ranges_util.h /usr/include/c++/15/unordered_map \
+ /usr/include/c++/15/bits/unordered_map.h \
+ /usr/include/c++/15/bits/hashtable.h \
+ /usr/include/c++/15/bits/hashtable_policy.h \
+ /usr/include/c++/15/ext/aligned_buffer.h \
+ /usr/include/c++/15/bits/enable_special_members.h \
+ /usr/include/c++/15/bits/node_handle.h \
+ /usr/include/c++/15/bits/erase_if.h /usr/include/c++/15/shared_mutex \
+ /usr/include/c++/15/bits/chrono.h /usr/include/c++/15/ratio \
+ /usr/include/c++/15/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /usr/include/c++/15/optional /usr/include/c++/15/exception \
- /usr/include/c++/15/bits/exception_ptr.h \
- /usr/include/c++/15/bits/cxxabi_init_exception.h \
- /usr/include/c++/15/typeinfo /usr/include/c++/15/bits/nested_exception.h \
- /usr/include/c++/15/bits/enable_special_members.h \
- /usr/include/c++/15/iostream /usr/include/c++/15/ostream \
- /usr/include/c++/15/bits/ostream.h /usr/include/c++/15/ios \
- /usr/include/c++/15/bits/ios_base.h /usr/include/c++/15/ext/atomicity.h \
+ /usr/include/c++/15/limits /usr/include/c++/15/ctime /usr/include/time.h \
+ /usr/include/x86_64-linux-gnu/bits/time.h \
+ /usr/include/x86_64-linux-gnu/bits/timex.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/c++/15/bits/parse_numbers.h \
+ /usr/include/x86_64-linux-gnu/c++/15/bits/error_constants.h \
+ /usr/include/c++/15/bits/std_mutex.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/gthr.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/gthr-default.h \
  /usr/include/pthread.h /usr/include/sched.h \
@@ -152,22 +156,25 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
  /usr/include/asm-generic/posix_types.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
- /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
- /usr/include/x86_64-linux-gnu/bits/time.h \
- /usr/include/x86_64-linux-gnu/bits/timex.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+ /usr/include/x86_64-linux-gnu/bits/cpu-set.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
  /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+ /usr/include/c++/15/optional /usr/include/c++/15/exception \
+ /usr/include/c++/15/bits/exception_ptr.h \
+ /usr/include/c++/15/bits/cxxabi_init_exception.h \
+ /usr/include/c++/15/typeinfo /usr/include/c++/15/bits/nested_exception.h \
+ /usr/include/c++/15/mutex /usr/include/c++/15/bits/unique_lock.h \
+ /usr/include/c++/15/ext/atomicity.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/atomic_word.h \
  /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
+ /usr/include/c++/15/iostream /usr/include/c++/15/ostream \
+ /usr/include/c++/15/bits/ostream.h /usr/include/c++/15/ios \
+ /usr/include/c++/15/bits/ios_base.h \
  /usr/include/c++/15/bits/locale_classes.h \
  /usr/include/c++/15/bits/locale_classes.tcc \
- /usr/include/c++/15/system_error \
- /usr/include/x86_64-linux-gnu/c++/15/bits/error_constants.h \
- /usr/include/c++/15/stdexcept /usr/include/c++/15/streambuf \
- /usr/include/c++/15/bits/streambuf.tcc \
+ /usr/include/c++/15/system_error /usr/include/c++/15/stdexcept \
+ /usr/include/c++/15/streambuf /usr/include/c++/15/bits/streambuf.tcc \
  /usr/include/c++/15/bits/basic_ios.h \
  /usr/include/c++/15/bits/locale_facets.h /usr/include/c++/15/cwctype \
  /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
@@ -177,9 +184,5 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/c++/15/bits/locale_facets.tcc \
  /usr/include/c++/15/bits/basic_ios.tcc \
  /usr/include/c++/15/bits/ostream.tcc /usr/include/c++/15/istream \
- /usr/include/c++/15/bits/istream.tcc /usr/include/c++/15/fstream \
- /usr/include/c++/15/bits/codecvt.h \
- /usr/include/x86_64-linux-gnu/c++/15/bits/basic_file.h \
- /usr/include/x86_64-linux-gnu/c++/15/bits/c++io.h \
- /usr/include/c++/15/bits/fstream.tcc /usr/include/c++/15/sstream \
- /usr/include/c++/15/bits/sstream.tcc
+ /usr/include/c++/15/bits/istream.tcc /usr/include/c++/15/cassert \
+ /usr/include/assert.h

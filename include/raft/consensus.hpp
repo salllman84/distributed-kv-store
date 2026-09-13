@@ -57,6 +57,8 @@ private:
     void startElection();
     void sendHeartbeats();
     void applyLogsToStore();
+    void persistMetadata();
+    void loadMetadata();
 
 public:
     RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Store& store);

@@ -1,14 +1,20 @@
 #include "raft/log.hpp"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 namespace raft {
 
-RaftLog::RaftLog() : commit_index_(0), last_applied_(0) {
-    // Push a dummy entry at index 0 to simplify 1-based log indexing logic
+RaftLog::RaftLog(int node_id) : node_id_(node_id), commit_index_(0), last_applied_(0) {
+    filename_ = "node_" + std::to_string(node_id_) + ".wal";
+    // Push dummy entry at index 0
     entries_.push_back(LogEntry{0, ""});
+    load(); // Recover from disk if WAL exists
 }
 
 uint64_t RaftLog::append(uint64_t term, const std::string& command) {
     entries_.push_back(LogEntry{term, command});
+    persist();
     return lastIndex();
 }
 
@@ -24,6 +30,7 @@ void RaftLog::appendEntries(uint64_t prev_log_index, const std::vector<LogEntry>
             entries_.push_back(new_entries[i]);
         }
     }
+    persist();
 }
 
 std::optional<LogEntry> RaftLog::getEntry(uint64_t index) const {
@@ -58,7 +65,34 @@ size_t RaftLog::size() const {
 void RaftLog::truncate(uint64_t index) {
     if (index < entries_.size()) {
         entries_.erase(entries_.begin() + index, entries_.end());
+        persist();
     }
+}
+
+void RaftLog::persist() const {
+    std::ofstream outfile(filename_, std::ios::trunc);
+    if (!outfile.is_open()) return;
+
+    // Save all entries starting from index 1
+    for (size_t i = 1; i < entries_.size(); ++i) {
+        outfile << entries_[i].term << " " << entries_[i].command.length() << " " << entries_[i].command << "\n";
+    }
+}
+
+void RaftLog::load() {
+    std::ifstream infile(filename_);
+    if (!infile.is_open()) return;
+
+    uint64_t term;
+    size_t length;
+    while (infile >> term >> length) {
+        infile.ignore(); // skip space
+        std::string cmd(length, '\0');
+        infile.read(&cmd[0], length);
+        infile.ignore(); // skip newline
+        entries_.push_back(LogEntry{term, cmd});
+    }
+    std::cout << "[RaftLog Node " << node_id_ << "] Recovered " << (entries_.size() - 1) << " entries from disk WAL.\n" << std::flush;
 }
 
 } // namespace raft

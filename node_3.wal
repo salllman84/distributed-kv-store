@@ -1,0 +1,2 @@
+1 32 SET project distributed-kv-store
+2 20 SET status surviving

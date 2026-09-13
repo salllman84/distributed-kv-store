@@ -1,20 +1,24 @@
 #include "raft/log.hpp"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 namespace raft {
 
-RaftLog::RaftLog() : commit_index_(0), last_applied_(0) {
-    // Push a dummy entry at index 0 to simplify 1-based log indexing logic
+RaftLog::RaftLog(int node_id) : node_id_(node_id), commit_index_(0), last_applied_(0) {
+    filename_ = "node_" + std::to_string(node_id_) + ".wal";
+    // Push dummy entry at index 0
     entries_.push_back(LogEntry{0, ""});
+    load(); // Recover from disk if WAL exists
 }
 
 uint64_t RaftLog::append(uint64_t term, const std::string& command) {
     entries_.push_back(LogEntry{term, command});
+    persist();
     return lastIndex();
 }
 
 void RaftLog::appendEntries(uint64_t prev_log_index, const std::vector<LogEntry>& new_entries) {
-    // Truncate any conflicting entries if necessary, then append new ones
-    // (Detailed conflict resolution handled inside consensus logic)
     for (size_t i = 0; i < new_entries.size(); ++i) {
         uint64_t target_index = prev_log_index + 1 + i;
         if (target_index < entries_.size()) {
@@ -22,11 +26,11 @@ void RaftLog::appendEntries(uint64_t prev_log_index, const std::vector<LogEntry>
                 truncate(target_index);
                 entries_.push_back(new_entries[i]);
             }
-            // If term matches, already exists, skip
         } else {
             entries_.push_back(new_entries[i]);
         }
     }
+    persist();
 }
 
 std::optional<LogEntry> RaftLog::getEntry(uint64_t index) const {
@@ -55,13 +59,40 @@ uint64_t RaftLog::lastTerm() const {
 }
 
 size_t RaftLog::size() const {
-    return entries_.size() - 1; // Exclude dummy entry
+    return entries_.size() - 1; 
 }
 
 void RaftLog::truncate(uint64_t index) {
     if (index < entries_.size()) {
         entries_.erase(entries_.begin() + index, entries_.end());
+        persist();
     }
+}
+
+void RaftLog::persist() const {
+    std::ofstream outfile(filename_, std::ios::trunc);
+    if (!outfile.is_open()) return;
+
+    // Save all entries starting from index 1
+    for (size_t i = 1; i < entries_.size(); ++i) {
+        outfile << entries_[i].term << " " << entries_[i].command.length() << " " << entries_[i].command << "\n";
+    }
+}
+
+void RaftLog::load() {
+    std::ifstream infile(filename_);
+    if (!infile.is_open()) return;
+
+    uint64_t term;
+    size_t length;
+    while (infile >> term >> length) {
+        infile.ignore(); // skip space
+        std::string cmd(length, '\0');
+        infile.read(&cmd[0], length);
+        infile.ignore(); // skip newline
+        entries_.push_back(LogEntry{term, cmd});
+    }
+    std::cout << "[RaftLog Node " << node_id_ << "] Recovered " << (entries_.size() - 1) << " entries from disk WAL.\n";
 }
 
 } // namespace raft

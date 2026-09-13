@@ -3,6 +3,7 @@
 #include "network/client.hpp"
 #include <random>
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <chrono>
 
@@ -12,6 +13,7 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
     : node_id_(node_id),
       current_term_(0),
       voted_for_(-1),
+      log_(node_id),
       state_(NodeState::FOLLOWER),
       commit_index_(0),
       last_applied_(0),
@@ -19,6 +21,8 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
       store_(store),
       running_(false) {
     
+    loadMetadata();
+
     // Seed randomized election timeout between 150ms and 300ms
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -31,10 +35,25 @@ RaftNode::~RaftNode() {
     stop();
 }
 
+void RaftNode::persistMetadata() {
+    std::ofstream outfile("node_" + std::to_string(node_id_) + "_meta.dat", std::ios::trunc);
+    if (outfile.is_open()) {
+        outfile << current_term_ << " " << voted_for_ << "\n";
+    }
+}
+
+void RaftNode::loadMetadata() {
+    std::ifstream infile("node_" + std::to_string(node_id_) + "_meta.dat");
+    if (infile.is_open()) {
+        infile >> current_term_ >> voted_for_;
+        std::cout << "[RaftNode " << node_id_ << "] Loaded metadata from disk: term=" << current_term_ << ", voted_for=" << voted_for_ << "\n" << std::flush;
+    }
+}
+
 void RaftNode::start() {
     running_ = true;
     background_thread_ = std::thread(&RaftNode::runBackgroundLoop, this);
-    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: 0)\n";
+    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n";
 }
 
 void RaftNode::stop() {
@@ -71,6 +90,7 @@ void RaftNode::startElection() {
     state_ = NodeState::CANDIDATE;
     current_term_++;
     voted_for_ = node_id_;
+    persistMetadata();
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -85,8 +105,15 @@ void RaftNode::startElection() {
     uint64_t last_log_term = log_.lastTerm();
     int votes = 1; // Vote for self
 
-    // Copy peers list under lock, then release lock for network calls
     std::vector<PeerInfo> current_peers = peers_;
+
+    // Check immediately if we already have a majority (e.g., single-node cluster)
+    if (votes > (current_peers.size() + 1) / 2) {
+        state_ = NodeState::LEADER;
+        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
+        return;
+    }
+
     mtx_.unlock();
 
     network::Client client;
@@ -117,6 +144,7 @@ void RaftNode::startElection() {
                     current_term_ = reply_term;
                     state_ = NodeState::FOLLOWER;
                     voted_for_ = -1;
+                    persistMetadata();
                     return;
                 }
                 if (granted) {
@@ -124,7 +152,6 @@ void RaftNode::startElection() {
                     if (votes > (current_peers.size() + 1) / 2) {
                         state_ = NodeState::LEADER;
                         std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
-                        // Initialize next_index and match_index for peers here
                         return;
                     }
                 }
@@ -176,6 +203,7 @@ void RaftNode::sendHeartbeats() {
                     current_term_ = reply_term;
                     state_ = NodeState::FOLLOWER;
                     voted_for_ = -1;
+                    persistMetadata();
                     return;
                 }
                 if (success) {
@@ -206,6 +234,7 @@ RequestVoteReply RaftNode::handleRequestVote(const RequestVoteArgs& args) {
         current_term_ = args.term;
         state_ = NodeState::FOLLOWER;
         voted_for_ = -1;
+        persistMetadata();
     }
 
     if (args.term == current_term_ && (voted_for_ == -1 || voted_for_ == args.candidate_id)) {
@@ -218,6 +247,7 @@ RequestVoteReply RaftNode::handleRequestVote(const RequestVoteArgs& args) {
 
         if (log_ok) {
             voted_for_ = args.candidate_id;
+            persistMetadata();
             reply.vote_granted = true;
             last_heartbeat_time_ = std::chrono::steady_clock::now(); // Reset timer
             std::cout << "[RaftNode " << node_id_ << "] Granted vote to Node " << args.candidate_id << " for Term " << current_term_ << "\n";
@@ -240,6 +270,7 @@ AppendEntriesReply RaftNode::handleAppendEntries(const AppendEntriesArgs& args) 
         current_term_ = args.term;
         state_ = NodeState::FOLLOWER;
         voted_for_ = -1;
+        persistMetadata();
     }
 
     if (args.term < current_term_) {
@@ -294,6 +325,7 @@ void RaftNode::applyLogsToStore() {
         }
     }
 }
+
 bool RaftNode::propose(const std::string& command, uint64_t& out_index) {
     std::unique_lock<std::mutex> lock(mtx_);
     if (state_ != NodeState::LEADER) {

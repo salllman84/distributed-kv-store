@@ -4,17 +4,24 @@
 #include "raft/state.hpp"
 #include <vector>
 #include <optional>
+#include <string>
+#include <cstdint>
 
 namespace raft {
 
 class RaftLog {
 private:
+    int node_id_;
     std::vector<LogEntry> entries_;
     uint64_t commit_index_;
     uint64_t last_applied_;
+    std::string filename_;
+
+    void persist() const;
+    void load();
 
 public:
-    RaftLog();
+    explicit RaftLog(int node_id);
     ~RaftLog() = default;
 
     // Append a new entry, returns its 1-based index

@@ -1,8 +1,7 @@
-CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/raft/log.cpp \
+CMakeFiles/test_network.dir/src/network/socket.cpp.o: \
+ /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp \
  /usr/include/stdc-predef.h \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/raft/log.hpp \
- /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/raft/state.hpp \
+ /home/systemEngineer/systems-engineering/project/distributed-kv-store/include/network/socket.hpp \
  /usr/include/c++/15/string /usr/include/c++/15/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \
@@ -126,17 +125,41 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/c++/15/bits/stl_uninitialized.h \
  /usr/include/c++/15/bits/stl_vector.h \
  /usr/include/c++/15/bits/stl_bvector.h \
- /usr/include/c++/15/bits/vector.tcc /usr/include/c++/15/cstdint \
- /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
+ /usr/include/c++/15/bits/vector.tcc \
+ /usr/include/x86_64-linux-gnu/sys/socket.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
+ /usr/include/x86_64-linux-gnu/bits/socket.h \
+ /usr/include/x86_64-linux-gnu/bits/socket_type.h \
+ /usr/include/x86_64-linux-gnu/bits/sockaddr.h \
+ /usr/include/x86_64-linux-gnu/asm/socket.h \
+ /usr/include/asm-generic/socket.h /usr/include/linux/posix_types.h \
+ /usr/include/linux/stddef.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
+ /usr/include/asm-generic/posix_types.h \
+ /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
+ /usr/include/asm-generic/bitsperlong.h \
+ /usr/include/x86_64-linux-gnu/asm/sockios.h \
+ /usr/include/asm-generic/sockios.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h \
+ /usr/include/netinet/in.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+ /usr/include/x86_64-linux-gnu/bits/in.h /usr/include/unistd.h \
+ /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
+ /usr/include/x86_64-linux-gnu/bits/environments.h \
+ /usr/include/x86_64-linux-gnu/bits/confname.h \
+ /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
+ /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
+ /usr/include/linux/close_range.h /usr/include/arpa/inet.h \
+ /usr/include/netinet/tcp.h \
+ /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-least.h \
- /usr/include/c++/15/optional /usr/include/c++/15/exception \
- /usr/include/c++/15/bits/exception_ptr.h \
- /usr/include/c++/15/bits/cxxabi_init_exception.h \
- /usr/include/c++/15/typeinfo /usr/include/c++/15/bits/nested_exception.h \
- /usr/include/c++/15/bits/enable_special_members.h \
  /usr/include/c++/15/iostream /usr/include/c++/15/ostream \
  /usr/include/c++/15/bits/ostream.h /usr/include/c++/15/ios \
+ /usr/include/c++/15/exception /usr/include/c++/15/bits/exception_ptr.h \
+ /usr/include/c++/15/bits/cxxabi_init_exception.h \
+ /usr/include/c++/15/typeinfo /usr/include/c++/15/bits/nested_exception.h \
  /usr/include/c++/15/bits/ios_base.h /usr/include/c++/15/ext/atomicity.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/gthr.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/gthr-default.h \
@@ -145,12 +168,6 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/linux/sched/types.h /usr/include/linux/types.h \
  /usr/include/x86_64-linux-gnu/asm/types.h \
  /usr/include/asm-generic/types.h /usr/include/asm-generic/int-ll64.h \
- /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
- /usr/include/asm-generic/bitsperlong.h /usr/include/linux/posix_types.h \
- /usr/include/linux/stddef.h \
- /usr/include/x86_64-linux-gnu/asm/posix_types.h \
- /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
- /usr/include/asm-generic/posix_types.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
  /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
  /usr/include/x86_64-linux-gnu/bits/time.h \
@@ -177,9 +194,5 @@ CMakeFiles/kv_node.dir/src/raft/log.cpp.o: \
  /usr/include/c++/15/bits/locale_facets.tcc \
  /usr/include/c++/15/bits/basic_ios.tcc \
  /usr/include/c++/15/bits/ostream.tcc /usr/include/c++/15/istream \
- /usr/include/c++/15/bits/istream.tcc /usr/include/c++/15/fstream \
- /usr/include/c++/15/bits/codecvt.h \
- /usr/include/x86_64-linux-gnu/c++/15/bits/basic_file.h \
- /usr/include/x86_64-linux-gnu/c++/15/bits/c++io.h \
- /usr/include/c++/15/bits/fstream.tcc /usr/include/c++/15/sstream \
- /usr/include/c++/15/bits/sstream.tcc
+ /usr/include/c++/15/bits/istream.tcc /usr/include/c++/15/cstring \
+ /usr/include/string.h /usr/include/strings.h
