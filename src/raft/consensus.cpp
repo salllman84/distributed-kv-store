@@ -454,8 +454,16 @@ void RaftNode::applyLogsToStore() {
                 std::string key, val;
                 iss >> key >> val;
                 store_.set(key, val); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n" <<std::flush;
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n";
             }
+            // <--- ADDED: Handle the DEL command
+            else if (op == "DEL") {
+                std::string key;
+                iss >> key;
+                store_.remove(key); // Inserts the Tombstone
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: DEL " << key << "\n";
+            }
+            
             applied_any = true;
         }
     }

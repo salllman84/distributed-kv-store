@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) node_id = std::stoi(argv[1]);
     if (argc > 2) port = std::stoi(argv[2]);
 
-    kvstore::Store db;
+    kvstore::Store db(node_id);
 
     // Define the static topology for our 3-node local cluster
     std::vector<raft::PeerInfo> all_nodes = {
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
             auto reply = raft_node.handleInstallSnapshot(args);
             response = common::Protocol::serializeInstallSnapshotReply(reply);
         }
-        else if (msg_type == "SET" || msg_type == "GET") {
+        else if (msg_type == "SET" || msg_type == "GET" || msg_type == "DEL") {
             if (raft_node.getState() != raft::NodeState::LEADER) {
                 int leader_id = raft_node.getLeaderId();
                 if (leader_id == -1) {
@@ -118,8 +118,17 @@ int main(int argc, char* argv[]) {
                         response = "-ERROR Consensus failure\n";
                     }
                 } 
+                else if (msg_type == "DEL") {
+                    std::string key;
+                    iss >> key;
+                    uint64_t index = 0;
+                    if (raft_node.propose("DEL " + key, index)) {
+                        response = "OK (Proposed DEL at index " + std::to_string(index) + ")\n";
+                    } else {
+                        response = "-ERROR Consensus failure\n";
+                    }
+                }
                 else if (msg_type == "GET") {
-                    // <--- ADDED: Block stale reads if the Leader has lost the majority
                     if (!raft_node.hasValidLease()) {
                         response = "-ERROR Stale read prevented: Leader lease expired (network partition likely)\n";
                     } else {
