@@ -1,0 +1,10 @@
+# Build directory
+build/
+
+# Application logs
+logs/
+
+# Database runtime state
+*.wal
+*.snap
+*meta.dat

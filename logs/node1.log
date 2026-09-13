@@ -1,2 +1,0 @@
-[RaftLog Node 1] Recovered 2 entries from disk WAL.
-[RaftNode 1] Loaded metadata from disk: term=435, voted_for=1
