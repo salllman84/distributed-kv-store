@@ -28,10 +28,17 @@ private:
     int voted_for_;
     RaftLog log_;
 
+    // Volatile state tracking the known leader
+    int current_leader_; 
+
     // Volatile state on all servers
     NodeState state_;
     uint64_t commit_index_;
     uint64_t last_applied_;
+
+    // Compaction State
+    size_t max_log_size_; 
+    void checkAndTriggerSnapshot(); 
 
     // Volatile state on leaders (reinitialized after election)
     std::vector<uint64_t> next_index_;
@@ -75,6 +82,9 @@ public:
     // RPC Handlers called by the network layer
     RequestVoteReply handleRequestVote(const RequestVoteArgs& args);
     AppendEntriesReply handleAppendEntries(const AppendEntriesArgs& args);
+    
+    // <--- ADDED: Snapshot RPC Handler
+    InstallSnapshotReply handleInstallSnapshot(const InstallSnapshotArgs& args);
 
     // Client request entrypoint
     bool propose(const std::string& command, uint64_t& out_index);

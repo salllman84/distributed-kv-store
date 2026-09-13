@@ -47,6 +47,19 @@ struct AppendEntriesReply {
     bool success;               // True if follower contained entry matching prev_log_index/term
 };
 
+// <--- ADDED: RPC structures for InstallSnapshot
+struct InstallSnapshotArgs {
+    uint64_t term;
+    int leader_id;
+    uint64_t last_included_index;
+    uint64_t last_included_term;
+    std::string data;           // The raw binary snapshot file content
+};
+
+struct InstallSnapshotReply {
+    uint64_t term;              // Current term, for leader to update itself
+};
+
 } // namespace raft
 
 #endif // RAFT_STATE_HPP

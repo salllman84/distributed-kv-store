@@ -17,6 +17,10 @@ private:
     uint64_t last_applied_;
     std::string filename_;
 
+    // --- Added offset state for Log Compaction ---
+    uint64_t last_included_index_;
+    uint64_t last_included_term_;
+
     void persist() const;
     void load();
 
@@ -39,10 +43,15 @@ public:
     // Log metadata helpers
     uint64_t lastIndex() const;
     uint64_t lastTerm() const;
-    size_t size() const;
+    size_t size() const; // Returns logical log size
 
     // Truncate conflicting entries starting from index
     void truncate(uint64_t index);
+
+    // --- Snapshot / Compaction Methods ---
+    void compact(uint64_t snapshot_index, uint64_t snapshot_term);
+    uint64_t getLastIncludedIndex() const { return last_included_index_; }
+    uint64_t getLastIncludedTerm() const { return last_included_term_; }
 
     // Commit index management
     uint64_t getCommitIndex() const { return commit_index_; }

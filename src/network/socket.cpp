@@ -45,7 +45,13 @@ bool Socket::bindAndListen(int port) {
     if (is_closed_) return false;
 
     int opt = 1;
+    // Standard reuse address
     setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    
+    // <--- ADDED: Force port reuse for immediate restarts in WSL2/Linux
+#ifdef SO_REUSEPORT
+    setsockopt(fd_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+#endif
 
     sockaddr_in address{};
     address.sin_family = AF_INET;

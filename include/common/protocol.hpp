@@ -74,6 +74,37 @@ public:
         oss << "APPEND_REPLY " << reply.term << " " << (reply.success ? 1 : 0) << "\n";
         return oss.str();
     }
+
+    // <--- ADDED: InstallSnapshot Serialization ---
+    static std::string serializeInstallSnapshot(const raft::InstallSnapshotArgs& args) {
+        std::ostringstream oss;
+        oss << "INSTALL_SNAPSHOT " 
+            << args.term << " " 
+            << args.leader_id << " " 
+            << args.last_included_index << " " 
+            << args.last_included_term << " "
+            << args.data.size() << " ";
+        // Write the raw binary data directly
+        oss.write(args.data.data(), args.data.size());
+        return oss.str();
+    }
+
+    static raft::InstallSnapshotArgs deserializeInstallSnapshot(std::istringstream& iss) {
+        raft::InstallSnapshotArgs args;
+        size_t data_size = 0;
+        iss >> args.term >> args.leader_id >> args.last_included_index >> args.last_included_term >> data_size;
+        iss.ignore(); // skip the space before the binary data
+        
+        args.data.resize(data_size);
+        iss.read(&args.data[0], data_size);
+        return args;
+    }
+
+    static std::string serializeInstallSnapshotReply(const raft::InstallSnapshotReply& reply) {
+        std::ostringstream oss;
+        oss << "SNAPSHOT_REPLY " << reply.term << "\n";
+        return oss.str();
+    }
 };
 
 } // namespace common

@@ -38,14 +38,16 @@ int main(int argc, char* argv[]) {
 
     network::Server server(4);
 
-    server.setHandler([&db, &raft_node](int client_fd) {
+    server.setHandler([&db, &raft_node, &all_nodes](int client_fd) {
         network::Socket client(client_fd);
-        char buffer[2048] = {0};
         
-        ssize_t bytes_rx = client.receiveData(buffer, sizeof(buffer) - 1);
+        // <--- MODIFIED: Increased buffer to 1MB to handle large snapshot files
+        std::vector<char> buffer(1024 * 1024, 0); 
+        
+        ssize_t bytes_rx = client.receiveData(buffer.data(), buffer.size() - 1);
         if (bytes_rx <= 0) return;
 
-        std::string request(buffer);
+        std::string request(buffer.data(), bytes_rx);
         std::istringstream iss(request);
         std::string msg_type;
         iss >> msg_type;
@@ -62,21 +64,45 @@ int main(int argc, char* argv[]) {
             auto reply = raft_node.handleAppendEntries(args);
             response = common::Protocol::serializeAppendEntriesReply(reply);
         }
-        else if (msg_type == "SET") {
-            std::string key, val;
-            iss >> key >> val;
-            uint64_t index = 0;
-            if (raft_node.propose("SET " + key + " " + val, index)) {
-                response = "OK (Proposed at index " + std::to_string(index) + ")\n";
+        // <--- ADDED: Intercept InstallSnapshot RPC
+        else if (msg_type == "INSTALL_SNAPSHOT") {
+            auto args = common::Protocol::deserializeInstallSnapshot(iss);
+            auto reply = raft_node.handleInstallSnapshot(args);
+            response = common::Protocol::serializeInstallSnapshotReply(reply);
+        }
+        else if (msg_type == "SET" || msg_type == "GET") {
+            if (raft_node.getState() != raft::NodeState::LEADER) {
+                int leader_id = raft_node.getLeaderId();
+                if (leader_id == -1) {
+                    response = "-ERROR Election in progress\n";
+                } else {
+                    int leader_port = -1;
+                    for (const auto& node : all_nodes) {
+                        if (node.id == leader_id) {
+                            leader_port = node.port;
+                            break;
+                        }
+                    }
+                    response = "-MOVED " + std::to_string(leader_port) + "\n";
+                }
             } else {
-                response = "ERROR: Not Leader\n";
+                if (msg_type == "SET") {
+                    std::string key, val;
+                    iss >> key >> val;
+                    uint64_t index = 0;
+                    if (raft_node.propose("SET " + key + " " + val, index)) {
+                        response = "OK (Proposed at index " + std::to_string(index) + ")\n";
+                    } else {
+                        response = "ERROR: Consensus failure\n";
+                    }
+                } 
+                else if (msg_type == "GET") {
+                    std::string key;
+                    iss >> key;
+                    auto val = db.get(key);
+                    response = val.has_value() ? val.value() + "\n" : "(nil)\n";
+                }
             }
-        } 
-        else if (msg_type == "GET") {
-            std::string key;
-            iss >> key;
-            auto val = db.get(key);
-            response = val.has_value() ? val.value() + "\n" : "(nil)\n";
         } 
         else {
             response = "ERROR: Unknown RPC type\n";
