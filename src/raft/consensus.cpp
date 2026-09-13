@@ -63,7 +63,7 @@ void RaftNode::loadMetadata() {
 void RaftNode::start() {
     running_ = true;
     background_thread_ = std::thread(&RaftNode::runBackgroundLoop, this);
-    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n";
+    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n" << std::flush;
 }
 
 void RaftNode::stop() {
@@ -107,7 +107,7 @@ void RaftNode::startElection() {
     election_timeout_ = std::chrono::milliseconds(dis(gen));
     last_heartbeat_time_ = std::chrono::steady_clock::now();
 
-    std::cout << "[RaftNode " << node_id_ << "] Election timeout expired. Starting election for Term " << current_term_ << "\n";
+    std::cout << "[RaftNode " << node_id_ << "] Election timeout expired. Starting election for Term " << current_term_ << "\n" << std::flush;
 
     uint64_t saved_term = current_term_;
     uint64_t last_log_idx = log_.lastIndex();
@@ -122,7 +122,7 @@ void RaftNode::startElection() {
         match_index_.assign(10, 0);
         // <--- ADDED: Establish initial lease upon winning single-node election
         leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
-        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
+        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
         return;
     }
 
@@ -168,7 +168,7 @@ void RaftNode::startElection() {
                         match_index_.assign(10, 0);
                         // <--- ADDED: Establish initial lease upon winning distributed election
                         leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
-                        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
+                        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
                         return;
                     }
                 }
@@ -344,7 +344,7 @@ RequestVoteReply RaftNode::handleRequestVote(const RequestVoteArgs& args) {
             persistMetadata();
             reply.vote_granted = true;
             last_heartbeat_time_ = std::chrono::steady_clock::now(); 
-            std::cout << "[RaftNode " << node_id_ << "] Granted vote to Node " << args.candidate_id << " for Term " << current_term_ << "\n";
+            std::cout << "[RaftNode " << node_id_ << "] Granted vote to Node " << args.candidate_id << " for Term " << current_term_ << "\n" << std::flush;
         } else {
             reply.vote_granted = false;
         }
@@ -432,7 +432,7 @@ InstallSnapshotReply RaftNode::handleInstallSnapshot(const InstallSnapshotArgs& 
         last_applied_ = args.last_included_index;
         
         std::cout << "[RaftNode " << node_id_ << "] Installed Snapshot from Leader (Index offset now: " 
-                  << args.last_included_index << ")\n";
+                  << args.last_included_index << ")\n" <<std::flush;
     }
 
     return reply;
@@ -454,7 +454,7 @@ void RaftNode::applyLogsToStore() {
                 std::string key, val;
                 iss >> key >> val;
                 store_.set(key, val); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n";
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n" <<std::flush;
             }
             applied_any = true;
         }
@@ -470,13 +470,13 @@ void RaftNode::checkAndTriggerSnapshot() {
     
     if (physical_size >= max_log_size_) {
         std::cout << "[RaftNode " << node_id_ << "] Log size (" << physical_size 
-                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n";
+                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n"<<std::flush;
                   
         std::string snap_file = "node_" + std::to_string(node_id_) + ".snap";
         
         if (store_.saveSnapshot(snap_file)) {
             log_.compact(last_applied_, log_.getTerm(last_applied_));
-            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n";
+            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n"<<std::flush;
         } else {
             std::cerr << "[RaftNode " << node_id_ << "] ERROR: Failed to write state machine snapshot!\n";
         }
