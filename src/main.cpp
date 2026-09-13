@@ -7,6 +7,25 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <csignal>
+#include <cstdlib>
+
+// Global pointer so the signal handler can trigger a clean shutdown
+raft::RaftNode* g_raft_node = nullptr;
+
+// Signal handler to intercept Ctrl+C (SIGINT) and pkill (SIGTERM)
+void handle_signal(int signum) {
+    std::cout << "\n[Node] Caught signal " << signum << ". Initiating graceful shutdown...\n";
+    
+    if (g_raft_node) {
+        g_raft_node->stop();
+    }
+    
+    std::cout.flush();
+    std::cerr.flush();
+    
+    std::exit(0);
+}
 
 int main(int argc, char* argv[]) {
     int node_id = 1;
@@ -34,14 +53,18 @@ int main(int argc, char* argv[]) {
 
     // Initialize the Raft Node instance with its peers
     raft::RaftNode raft_node(node_id, peers, db);
+    
+    // Register global pointer and signal handlers before starting threads
+    g_raft_node = &raft_node;
+    std::signal(SIGINT, handle_signal);
+    std::signal(SIGTERM, handle_signal);
+
     raft_node.start();
 
     network::Server server(4);
 
     server.setHandler([&db, &raft_node, &all_nodes](int client_fd) {
         network::Socket client(client_fd);
-        
-        // <--- MODIFIED: Increased buffer to 1MB to handle large snapshot files
         std::vector<char> buffer(1024 * 1024, 0); 
         
         ssize_t bytes_rx = client.receiveData(buffer.data(), buffer.size() - 1);
@@ -64,7 +87,6 @@ int main(int argc, char* argv[]) {
             auto reply = raft_node.handleAppendEntries(args);
             response = common::Protocol::serializeAppendEntriesReply(reply);
         }
-        // <--- ADDED: Intercept InstallSnapshot RPC
         else if (msg_type == "INSTALL_SNAPSHOT") {
             auto args = common::Protocol::deserializeInstallSnapshot(iss);
             auto reply = raft_node.handleInstallSnapshot(args);
@@ -93,14 +115,19 @@ int main(int argc, char* argv[]) {
                     if (raft_node.propose("SET " + key + " " + val, index)) {
                         response = "OK (Proposed at index " + std::to_string(index) + ")\n";
                     } else {
-                        response = "ERROR: Consensus failure\n";
+                        response = "-ERROR Consensus failure\n";
                     }
                 } 
                 else if (msg_type == "GET") {
-                    std::string key;
-                    iss >> key;
-                    auto val = db.get(key);
-                    response = val.has_value() ? val.value() + "\n" : "(nil)\n";
+                    // <--- ADDED: Block stale reads if the Leader has lost the majority
+                    if (!raft_node.hasValidLease()) {
+                        response = "-ERROR Stale read prevented: Leader lease expired (network partition likely)\n";
+                    } else {
+                        std::string key;
+                        iss >> key;
+                        auto val = db.get(key);
+                        response = val.has_value() ? val.value() + "\n" : "(nil)\n";
+                    }
                 }
             }
         } 
@@ -112,6 +139,8 @@ int main(int argc, char* argv[]) {
     });
 
     std::cout << "[Node " << node_id << "] Distributed KV & Raft Node booting on port " << port << "...\n";
+    std::cout.flush(); 
+
     server.start(port);
 
     raft_node.stop();

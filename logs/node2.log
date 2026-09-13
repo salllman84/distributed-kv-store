@@ -1,2 +1,2 @@
-[RaftLog Node 2] Recovered 2 entries from disk WAL.
-[RaftNode 2] Loaded metadata from disk: term=435, voted_for=1
+[RaftNode 2] Started in FOLLOWER state (Term: 0)
+[Node 2] Distributed KV & Raft Node booting on port 8082...

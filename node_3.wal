@@ -1,2 +1,2 @@
-1 32 SET project distributed-kv-store
-2 20 SET status surviving
+SNAP 0 0
+1 25 SET system_status healthy

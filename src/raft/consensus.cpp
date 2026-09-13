@@ -19,6 +19,7 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
       commit_index_(0),
       last_applied_(0),
       max_log_size_(10), 
+      leader_lease_end_(std::chrono::steady_clock::time_point::min()), // <--- ADDED: Initialize expired
       peers_(peers),
       store_(store),
       running_(false) {
@@ -62,7 +63,7 @@ void RaftNode::loadMetadata() {
 void RaftNode::start() {
     running_ = true;
     background_thread_ = std::thread(&RaftNode::runBackgroundLoop, this);
-    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n";
+    std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n" << std::flush;
 }
 
 void RaftNode::stop() {
@@ -106,7 +107,7 @@ void RaftNode::startElection() {
     election_timeout_ = std::chrono::milliseconds(dis(gen));
     last_heartbeat_time_ = std::chrono::steady_clock::now();
 
-    std::cout << "[RaftNode " << node_id_ << "] Election timeout expired. Starting election for Term " << current_term_ << "\n";
+    std::cout << "[RaftNode " << node_id_ << "] Election timeout expired. Starting election for Term " << current_term_ << "\n" << std::flush;
 
     uint64_t saved_term = current_term_;
     uint64_t last_log_idx = log_.lastIndex();
@@ -117,10 +118,11 @@ void RaftNode::startElection() {
 
     if (votes > (current_peers.size() + 1) / 2) {
         state_ = NodeState::LEADER;
-        // <--- ADDED: Initialize per-peer routing tables
         next_index_.assign(10, log_.lastIndex() + 1); 
         match_index_.assign(10, 0);
-        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
+        // <--- ADDED: Establish initial lease upon winning single-node election
+        leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
+        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
         return;
     }
 
@@ -162,10 +164,11 @@ void RaftNode::startElection() {
                     votes++;
                     if (votes > (current_peers.size() + 1) / 2) {
                         state_ = NodeState::LEADER;
-                        // <--- ADDED: Initialize per-peer routing tables
                         next_index_.assign(10, log_.lastIndex() + 1); 
                         match_index_.assign(10, 0);
-                        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n";
+                        // <--- ADDED: Establish initial lease upon winning distributed election
+                        leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
+                        std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term " << current_term_ << "\n" <<std::flush;
                         return;
                     }
                 }
@@ -180,7 +183,9 @@ void RaftNode::sendHeartbeats() {
     std::vector<PeerInfo> current_peers = peers_;
     uint64_t saved_term = current_term_;
 
-    // Structure to securely build RPCs while holding the lock
+    // <--- ADDED: Capture exactly when the heartbeat RPCs began
+    auto lease_start_time = std::chrono::steady_clock::now();
+
     struct RPCContext {
         int peer_id;
         bool is_snapshot;
@@ -191,14 +196,12 @@ void RaftNode::sendHeartbeats() {
     std::vector<RPCContext> rpcs;
 
     for (const auto& peer : current_peers) {
-        // Safety bound for vector
         if (peer.id >= next_index_.size()) continue; 
         
         uint64_t next_idx = next_index_[peer.id];
         RPCContext ctx;
         ctx.peer_id = peer.id;
 
-        // <--- ADDED: Determine if we must send a Snapshot instead of standard logs
         if (next_idx <= log_.getLastIncludedIndex()) {
             ctx.is_snapshot = true;
             InstallSnapshotArgs snap_args;
@@ -218,7 +221,6 @@ void RaftNode::sendHeartbeats() {
             ctx.target_next_idx = snap_args.last_included_index + 1;
             ctx.target_match_idx = snap_args.last_included_index;
         } 
-        // <--- MODIFIED: Build true per-peer AppendEntries logic
         else {
             ctx.is_snapshot = false;
             uint64_t prev_idx = next_idx - 1;
@@ -251,7 +253,6 @@ void RaftNode::sendHeartbeats() {
         const auto& peer = current_peers[i];
         const auto& ctx = rpcs[i];
         
-        // Snapshots get a longer timeout (2000ms) to allow for large disk writes
         int timeout = ctx.is_snapshot ? 2000 : 100;
         auto reply_str = client.sendRpc(peer.ip, peer.port, ctx.payload_str, timeout);
 
@@ -273,7 +274,6 @@ void RaftNode::sendHeartbeats() {
                     persistMetadata();
                     return;
                 }
-                // Snapshot accepted! Advance pointers
                 next_index_[peer.id] = ctx.target_next_idx;
                 match_index_[peer.id] = ctx.target_match_idx;
             }
@@ -297,7 +297,6 @@ void RaftNode::sendHeartbeats() {
                     match_index_[peer.id] = ctx.target_match_idx;
                     acks++;
                 } else {
-                    // <--- ADDED: Raft backfilling logic. Decrement so we send an older log next time
                     if (next_index_[peer.id] > 1) {
                         next_index_[peer.id]--;
                     }
@@ -310,6 +309,9 @@ void RaftNode::sendHeartbeats() {
     
     if (state_ == NodeState::LEADER && current_term_ == saved_term) {
         if (acks > (current_peers.size() + 1) / 2) {
+            // <--- ADDED: Renew lease since a majority acknowledged the heartbeat
+            leader_lease_end_ = lease_start_time + election_timeout_;
+            
             if (last_idx > commit_index_) {
                 commit_index_ = last_idx;
                 applyLogsToStore(); 
@@ -342,7 +344,7 @@ RequestVoteReply RaftNode::handleRequestVote(const RequestVoteArgs& args) {
             persistMetadata();
             reply.vote_granted = true;
             last_heartbeat_time_ = std::chrono::steady_clock::now(); 
-            std::cout << "[RaftNode " << node_id_ << "] Granted vote to Node " << args.candidate_id << " for Term " << current_term_ << "\n";
+            std::cout << "[RaftNode " << node_id_ << "] Granted vote to Node " << args.candidate_id << " for Term " << current_term_ << "\n" << std::flush;
         } else {
             reply.vote_granted = false;
         }
@@ -396,7 +398,6 @@ AppendEntriesReply RaftNode::handleAppendEntries(const AppendEntriesArgs& args) 
     return reply;
 }
 
-// <--- ADDED: Follower applying the binary snapshot
 InstallSnapshotReply RaftNode::handleInstallSnapshot(const InstallSnapshotArgs& args) {
     std::unique_lock<std::mutex> lock(mtx_);
     InstallSnapshotReply reply;
@@ -411,32 +412,27 @@ InstallSnapshotReply RaftNode::handleInstallSnapshot(const InstallSnapshotArgs& 
 
     reply.term = current_term_;
     if (args.term < current_term_) {
-        return reply; // Reject obsolete snapshots
+        return reply; 
     }
 
     state_ = NodeState::FOLLOWER;
     current_leader_ = args.leader_id;
     last_heartbeat_time_ = std::chrono::steady_clock::now();
 
-    // Write the binary data to disk
     std::string snap_file = "node_" + std::to_string(node_id_) + ".snap";
     std::ofstream out(snap_file, std::ios::binary | std::ios::trunc);
     if (out) {
         out.write(args.data.data(), args.data.size());
         out.close();
         
-        // Instruct the KV store to wipe memory and load the file
         store_.loadSnapshot(snap_file);
-        
-        // Sync the log's compaction offset to match the new snapshot
         log_.compact(args.last_included_index, args.last_included_term);
         
-        // Update tracking variables so we don't try to apply old logs
         commit_index_ = args.last_included_index;
         last_applied_ = args.last_included_index;
         
         std::cout << "[RaftNode " << node_id_ << "] Installed Snapshot from Leader (Index offset now: " 
-                  << args.last_included_index << ")\n";
+                  << args.last_included_index << ")\n" <<std::flush;
     }
 
     return reply;
@@ -458,7 +454,7 @@ void RaftNode::applyLogsToStore() {
                 std::string key, val;
                 iss >> key >> val;
                 store_.set(key, val); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n";
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n" <<std::flush;
             }
             applied_any = true;
         }
@@ -474,13 +470,13 @@ void RaftNode::checkAndTriggerSnapshot() {
     
     if (physical_size >= max_log_size_) {
         std::cout << "[RaftNode " << node_id_ << "] Log size (" << physical_size 
-                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n";
+                  << ") exceeded threshold. Triggering snapshot at index " << last_applied_ << "...\n"<<std::flush;
                   
         std::string snap_file = "node_" + std::to_string(node_id_) + ".snap";
         
         if (store_.saveSnapshot(snap_file)) {
             log_.compact(last_applied_, log_.getTerm(last_applied_));
-            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n";
+            std::cout << "[RaftNode " << node_id_ << "] Compaction complete.\n"<<std::flush;
         } else {
             std::cerr << "[RaftNode " << node_id_ << "] ERROR: Failed to write state machine snapshot!\n";
         }
@@ -509,6 +505,13 @@ uint64_t RaftNode::getCurrentTerm() const {
 int RaftNode::getLeaderId() const {
     std::unique_lock<std::mutex> lock(mtx_);
     return (state_ == NodeState::LEADER) ? node_id_ : current_leader_;
+}
+
+// <--- ADDED: Linearizability check
+bool RaftNode::hasValidLease() const {
+    std::unique_lock<std::mutex> lock(mtx_);
+    if (state_ != NodeState::LEADER) return false;
+    return std::chrono::steady_clock::now() < leader_lease_end_;
 }
 
 } // namespace raft

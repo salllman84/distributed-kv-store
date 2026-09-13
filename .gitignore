@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Build directory
 build/
 
@@ -8,3 +9,15 @@ logs/
 *.wal
 *.snap
 *meta.dat
+=======
+# Build directory
+build/
+
+# Application logs
+logs/
+
+# Database runtime state
+*.wal
+*.snap
+*meta.dat
+>>>>>>> feature/disk-persestence
