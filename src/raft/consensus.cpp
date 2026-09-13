@@ -135,19 +135,29 @@ void RaftNode::startElection() {
 }
 
 void RaftNode::sendHeartbeats() {
+    uint64_t last_idx = log_.lastIndex();
+    
     AppendEntriesArgs args;
     args.term = current_term_;
     args.leader_id = node_id_;
-    args.prev_log_index = log_.lastIndex();
-    args.prev_log_term = log_.lastTerm();
+    args.prev_log_index = commit_index_; 
+    args.prev_log_term = log_.getTerm(commit_index_);
     args.leader_commit = commit_index_;
+
+    // Attach any uncommitted entries to the payload
+    for (uint64_t i = commit_index_ + 1; i <= last_idx; i++) {
+        auto entry = log_.getEntry(i);
+        if (entry) args.entries.push_back(*entry);
+    }
 
     std::vector<PeerInfo> current_peers = peers_;
     uint64_t saved_term = current_term_;
 
     mtx_.unlock();
 
+    int acks = 1; // Leader implicitly acks its own log
     network::Client client;
+    
     for (const auto& peer : current_peers) {
         std::string payload = common::Protocol::serializeAppendEntries(args);
         auto reply_str = client.sendRpc(peer.ip, peer.port, payload, 100);
@@ -161,17 +171,31 @@ void RaftNode::sendHeartbeats() {
                 bool success;
                 iss >> reply_term >> success;
 
-                std::unique_lock<std::mutex> lock(mtx_);
-                if (reply_term > current_term_) {
+                if (reply_term > saved_term) {
+                    std::unique_lock<std::mutex> lock(mtx_);
                     current_term_ = reply_term;
                     state_ = NodeState::FOLLOWER;
                     voted_for_ = -1;
                     return;
                 }
+                if (success) {
+                    acks++;
+                }
             }
         }
     }
+
     mtx_.lock();
+    
+    // If a majority replicated the log, advance the commit index
+    if (state_ == NodeState::LEADER && current_term_ == saved_term) {
+        if (acks > (current_peers.size() + 1) / 2) {
+            if (last_idx > commit_index_) {
+                commit_index_ = last_idx;
+                applyLogsToStore(); // Leader applies first
+            }
+        }
+    }
 }
 
 RequestVoteReply RaftNode::handleRequestVote(const RequestVoteArgs& args) {
@@ -256,16 +280,20 @@ void RaftNode::applyLogsToStore() {
         last_applied_++;
         auto entry = log_.getEntry(last_applied_);
         if (entry.has_value()) {
-            // Parse command e.g., "SET key value" and apply to storage engine
             std::string cmd = entry.value().command;
-            // Basic parser for state machine application
-            if (cmd.rfind("SET", 0) == 0) {
-                // Extract key and value and apply to store_
+            std::istringstream iss(cmd);
+            std::string op;
+            iss >> op;
+            
+            if (op == "SET") {
+                std::string key, val;
+                iss >> key >> val;
+                store_.set(key, val); // Actually execute the write!
+                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n";
             }
         }
     }
 }
-
 bool RaftNode::propose(const std::string& command, uint64_t& out_index) {
     std::unique_lock<std::mutex> lock(mtx_);
     if (state_ != NodeState::LEADER) {
