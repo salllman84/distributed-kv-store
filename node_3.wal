@@ -1,6 +1,2 @@
-SNAP 10 1
-1 15 SET key11 val11
-1 15 SET key12 val12
-1 15 SET key13 val13
-1 15 SET key14 val14
-1 15 SET key15 val15
+SNAP 0 0
+1 25 SET system_status healthy

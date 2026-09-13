@@ -1,1 +1,2 @@
-[RaftNode 3] Loaded metadata from disk: term=1, voted_for=-1
+[RaftNode 3] Started in FOLLOWER state (Term: 0)
+[Node 3] Distributed KV & Raft Node booting on port 8083...
