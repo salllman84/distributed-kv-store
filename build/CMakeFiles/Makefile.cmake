@@ -64,4 +64,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/kv_node.dir/DependInfo.cmake"
   "CMakeFiles/test_store.dir/DependInfo.cmake"
   "CMakeFiles/test_network.dir/DependInfo.cmake"
+  "CMakeFiles/ycsb_benchmark.dir/DependInfo.cmake"
   )

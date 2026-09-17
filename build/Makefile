@@ -155,6 +155,19 @@ test_network/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_network.dir/build.make CMakeFiles/test_network.dir/build
 .PHONY : test_network/fast
 
+#=============================================================================
+# Target rules for targets named ycsb_benchmark
+
+# Build rule for target.
+ycsb_benchmark: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ycsb_benchmark
+.PHONY : ycsb_benchmark
+
+# fast build rule for target.
+ycsb_benchmark/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ycsb_benchmark.dir/build.make CMakeFiles/ycsb_benchmark.dir/build
+.PHONY : ycsb_benchmark/fast
+
 src/common/thread_pool.o: src/common/thread_pool.cpp.o
 .PHONY : src/common/thread_pool.o
 
@@ -350,6 +363,30 @@ tests/test_store.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_store.dir/build.make CMakeFiles/test_store.dir/tests/test_store.cpp.s
 .PHONY : tests/test_store.cpp.s
 
+tests/ycsb_benchmark.o: tests/ycsb_benchmark.cpp.o
+.PHONY : tests/ycsb_benchmark.o
+
+# target to build an object file
+tests/ycsb_benchmark.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ycsb_benchmark.dir/build.make CMakeFiles/ycsb_benchmark.dir/tests/ycsb_benchmark.cpp.o
+.PHONY : tests/ycsb_benchmark.cpp.o
+
+tests/ycsb_benchmark.i: tests/ycsb_benchmark.cpp.i
+.PHONY : tests/ycsb_benchmark.i
+
+# target to preprocess a source file
+tests/ycsb_benchmark.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ycsb_benchmark.dir/build.make CMakeFiles/ycsb_benchmark.dir/tests/ycsb_benchmark.cpp.i
+.PHONY : tests/ycsb_benchmark.cpp.i
+
+tests/ycsb_benchmark.s: tests/ycsb_benchmark.cpp.s
+.PHONY : tests/ycsb_benchmark.s
+
+# target to generate assembly for a file
+tests/ycsb_benchmark.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ycsb_benchmark.dir/build.make CMakeFiles/ycsb_benchmark.dir/tests/ycsb_benchmark.cpp.s
+.PHONY : tests/ycsb_benchmark.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -361,6 +398,7 @@ help:
 	@echo "... kv_node"
 	@echo "... test_network"
 	@echo "... test_store"
+	@echo "... ycsb_benchmark"
 	@echo "... src/common/thread_pool.o"
 	@echo "... src/common/thread_pool.i"
 	@echo "... src/common/thread_pool.s"
@@ -385,6 +423,9 @@ help:
 	@echo "... tests/test_store.o"
 	@echo "... tests/test_store.i"
 	@echo "... tests/test_store.s"
+	@echo "... tests/ycsb_benchmark.o"
+	@echo "... tests/ycsb_benchmark.i"
+	@echo "... tests/ycsb_benchmark.s"
 .PHONY : help
 
 
