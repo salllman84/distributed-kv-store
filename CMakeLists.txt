@@ -37,3 +37,9 @@ add_executable(test_network
     src/network/socket.cpp
 )
 target_link_libraries(test_network PRIVATE Threads::Threads)
+
+# ---------------------------------------------------------
+# Target 4: YCSB Benchmark (Custom LSM vs LevelDB)
+# ---------------------------------------------------------
+add_executable(ycsb_benchmark tests/ycsb_benchmark.cpp)
+target_link_libraries(ycsb_benchmark PRIVATE leveldb Threads::Threads)
