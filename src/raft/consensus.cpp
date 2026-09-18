@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <sstream>
+#include <algorithm>
 
 namespace raft {
 
@@ -19,7 +20,7 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
       state_(NodeState::FOLLOWER),
       commit_index_(0),
       last_applied_(0),
-      max_log_size_(10), 
+      max_log_size_(10000), 
       leader_lease_end_(std::chrono::steady_clock::time_point::min()),
       peers_(peers),
       store_(store),
@@ -40,6 +41,23 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
     std::uniform_int_distribution<int> dis(150, 300);
     election_timeout_ = std::chrono::milliseconds(dis(gen));
     last_heartbeat_time_ = std::chrono::steady_clock::now();
+
+    store_.registerStepDownCallback([this]() {
+        std::thread([this]() {
+            std::lock_guard<std::mutex> lock(this->mtx_); 
+            
+            if (this->state_ == NodeState::LEADER) {
+                std::cout << "\n[RaftNode " << this->node_id_ << "] \033[1;31m🚨 STORAGE OVERLOAD DETECTED! 🚨\033[0m\n";
+                std::cout << "[RaftNode " << this->node_id_ << "] Gracefully stepping down to FOLLOWER to protect cluster tail latency.\n\n" << std::flush;
+                
+                this->state_ = NodeState::FOLLOWER; 
+                this->voted_for_ = -1;
+                this->current_leader_ = -1;
+                this->persistMetadata();
+                this->last_heartbeat_time_ = std::chrono::steady_clock::now();
+            }
+        }).detach();
+    });
 }
 
 RaftNode::~RaftNode() {
@@ -126,7 +144,6 @@ void RaftNode::startElection() {
         return;
     }
 
-    // --- DANGER ZONE: Temporarily unlock to perform blocking network I/O safely ---
     mtx_.unlock();
 
     network::Client client;
@@ -142,8 +159,6 @@ void RaftNode::startElection() {
         args.last_log_term = last_log_term;
 
         std::string payload = common::Protocol::serializeRequestVote(args);
-        
-        // Timeout of 50ms so an offline node doesn't freeze the election
         auto reply_str = client.sendRpc(peer.ip, peer.port, payload, 50);
 
         if (reply_str.has_value()) {
@@ -166,10 +181,8 @@ void RaftNode::startElection() {
         }
     }
 
-    // --- SAFE ZONE: Relock mutex exactly once before modifying state ---
     mtx_.lock();
 
-    // 1. If we stepped down due to a higher term found during the network phase
     if (step_down && new_term > current_term_) {
         current_term_ = new_term;
         state_ = NodeState::FOLLOWER;
@@ -179,12 +192,10 @@ void RaftNode::startElection() {
         return;
     }
 
-    // 2. If state changed while we were unlocked (e.g. received an AppendEntries from a valid leader)
     if (current_term_ != saved_term || state_ != NodeState::CANDIDATE) {
         return;
     }
 
-    // 3. Count votes
     votes += votes_received;
     if (votes > (current_peers.size() + 1) / 2) {
         state_ = NodeState::LEADER;
@@ -247,19 +258,20 @@ void RaftNode::sendHeartbeats() {
             args.prev_log_term = log_.getTerm(prev_idx);
             args.leader_commit = commit_index_;
 
-            for (uint64_t i = next_idx; i <= last_idx; i++) {
+            // --- THE FIX: Cap the batch size to 200 entries to prevent Death Spiral ---
+            uint64_t end_idx = std::min(last_idx, next_idx + 50 - 1);
+            for (uint64_t i = next_idx; i <= end_idx; i++) {
                 auto entry = log_.getEntry(i);
                 if (entry) args.entries.push_back(*entry);
             }
             
             ctx.payload_str = common::Protocol::serializeAppendEntries(args);
-            ctx.target_next_idx = last_idx + 1;
-            ctx.target_match_idx = last_idx;
+            ctx.target_next_idx = end_idx + 1;
+            ctx.target_match_idx = end_idx;
         }
         rpcs.push_back(ctx);
     }
 
-    // --- DANGER ZONE: Temporarily unlock to perform blocking network I/O safely ---
     mtx_.unlock();
 
     int acks = 1; // Self
@@ -279,7 +291,8 @@ void RaftNode::sendHeartbeats() {
         const auto& peer = current_peers[i];
         const auto& ctx = rpcs[i];
         
-        int timeout = ctx.is_snapshot ? 2000 : 100;
+        // --- THE FIX: Increased normal RPC timeout to 1 full second (1000ms) ---
+        int timeout = ctx.is_snapshot ? 2000 : 1000;
         auto reply_str = client.sendRpc(peer.ip, peer.port, ctx.payload_str, timeout);
 
         if (reply_str.has_value()) {
@@ -312,7 +325,6 @@ void RaftNode::sendHeartbeats() {
         }
     }
 
-    // --- SAFE ZONE: Relock mutex exactly once before modifying state ---
     mtx_.lock();
     
     if (step_down && new_term > current_term_) {
@@ -483,13 +495,11 @@ void RaftNode::applyLogsToStore() {
                 std::string key, val;
                 iss >> key >> val;
                 store_.set(key, val); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: " << key << "=" << val << "\n" << std::flush;
             }
             else if (op == "DEL") {
                 std::string key;
                 iss >> key;
                 store_.remove(key); 
-                std::cout << "[RaftNode " << node_id_ << "] COMMITTED to Store: DEL " << key << "\n" << std::flush;
             }
             
             applied_any = true;

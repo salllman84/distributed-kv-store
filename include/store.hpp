@@ -14,7 +14,7 @@
 #include <thread>
 #include <atomic>
 #include <algorithm>
-#include <functional> // REQUIRED FOR CPU HASHING
+#include <functional> // REQUIRED FOR CPU HASHING & CALLBACKS
 #include <array>      // REQUIRED FOR LOCK STRIPING
 
 namespace kvstore {
@@ -35,7 +35,6 @@ private:
     
     std::array<Shard, NUM_SHARDS> shards_;
     std::atomic<size_t> total_memtable_size_{0};
-    // ----------------------------------------------------
 
     std::vector<std::string> sstables_; 
     mutable std::shared_mutex sstables_mutex_; 
@@ -43,34 +42,28 @@ private:
     std::atomic<int> sstable_id_counter_{0};   
     std::atomic<bool> is_compacting_{false};   
 
-    // Increased limits because our memory throughput is now massive
+    // --- INNOVATION 3: Compaction-Aware Consensus Tripwire ---
+    std::function<void()> leader_stepdown_callback_ = nullptr;
+
     const size_t MEMTABLE_LIMIT = 50; 
     const size_t COMPACTION_THRESHOLD = 4;
 
-    // Ultra-fast deterministic routing
     size_t getShardIndex(const std::string& key) const {
         return std::hash<std::string>{}(key) % NUM_SHARDS;
     }
 
     void flushMemtableToDisk() {
-        // ----------------------------------------------------
-        // INNOVATION 2: C++17 Zero-Copy Pointer Splicing
-        // ----------------------------------------------------
         std::map<std::string, std::optional<std::string>> frozen_memtable;
         
-        // Lock each shard just long enough to steal its memory pointers
         for (size_t i = 0; i < NUM_SHARDS; ++i) {
             std::unique_lock<std::shared_mutex> lock(shards_[i].mutex);
-            // .merge() transfers tree nodes without copying memory allocations!
             frozen_memtable.merge(shards_[i].data); 
         }
         
-        // Reset global counter atomically
         total_memtable_size_.store(0, std::memory_order_relaxed);
 
         if (frozen_memtable.empty()) return;
 
-        // Perform standard disk I/O on the frozen data
         std::string filename = "node_" + std::to_string(node_id_) + "_sstable_" + std::to_string(sstable_id_counter_++) + ".sst";
         std::ofstream out(filename, std::ios::binary | std::ios::trunc);
         
@@ -102,7 +95,21 @@ private:
         
         std::cout << "[LSM-Tree Node " << node_id_ << "] Flushed Lock-Striped MemTable: " << filename << "\n" << std::flush;
 
-        // Async Background Compaction
+        // ============================================================================
+        // CRITICAL FIX: Tripwire check OUTSIDE and BEFORE the atomic compaction guard
+        // ============================================================================
+        // This check MUST run on EVERY flush, regardless of compaction state.
+        // If disk is saturated (current_sstable_count >= 6), the leader must step down
+        // EVEN IF a compaction is already running. This is when the system is most at risk.
+        if (current_sstable_count >= COMPACTION_THRESHOLD + 2) { 
+            if (leader_stepdown_callback_) {
+                leader_stepdown_callback_();
+            }
+        }
+
+        // ============================================================================
+        // Only after the tripwire has fired, attempt to spawn a compaction if needed
+        // ============================================================================
         bool expected = false;
         if (current_sstable_count >= COMPACTION_THRESHOLD && is_compacting_.compare_exchange_strong(expected, true)) {
             std::thread([this]() {
@@ -120,6 +127,9 @@ private:
         }
         if (files_to_compact.empty()) return;
         std::cout << "[LSM-Tree Node " << node_id_ << "] Starting Async Major Compaction...\n" << std::flush;
+        // --- DETERMINISTIC FAULT INJECTION ---
+        // Simulating a 100ms EBS volume latency spike to test Consensus step-down
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
         std::map<std::string, std::string> compacted_data;
         for (const auto& sst : files_to_compact) {
@@ -215,16 +225,19 @@ public:
     explicit Store(int node_id = 0) : node_id_(node_id) {}
     ~Store() = default;
 
+    // Register the Raft layer callback
+    void registerStepDownCallback(std::function<void()> cb) {
+        leader_stepdown_callback_ = std::move(cb);
+    }
+
     void set(const std::string& key, const std::string& value) {
         size_t idx = getShardIndex(key);
         bool should_flush = false;
         {
-            // Only lock the specific shard! 15 other shards are free.
             std::unique_lock<std::shared_mutex> lock(shards_[idx].mutex);
             auto [it, inserted] = shards_[idx].data.insert_or_assign(key, value);
             
             if (inserted) {
-                // Use relaxed atomic addition for extreme speed
                 size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
                 if (current_size + 1 >= MEMTABLE_LIMIT) {
                     should_flush = true;
@@ -293,7 +306,6 @@ public:
             current_sstables = sstables_;
         }
 
-        // 1. Reconstruct state from disk
         for (const auto& sst : current_sstables) {
             std::ifstream in(sst, std::ios::binary);
             if (!in) continue;
@@ -320,7 +332,6 @@ public:
             }
         }
 
-        // 2. Overlay the latest data from all 16 Shards
         for (size_t i = 0; i < NUM_SHARDS; ++i) {
             std::shared_lock<std::shared_mutex> lock(shards_[i].mutex);
             for (const auto& [k, v_opt] : shards_[i].data) {
@@ -329,7 +340,6 @@ public:
             }
         }
 
-        // 3. Write final snapshot
         std::ofstream out(filename, std::ios::binary | std::ios::trunc);
         if (!out) return false;
 
@@ -348,7 +358,6 @@ public:
     }
 
     bool loadSnapshot(const std::string& filename) {
-        // Lock all 16 shards strictly in order to prevent deadlocks
         std::vector<std::unique_lock<std::shared_mutex>> shard_locks;
         for (size_t i = 0; i < NUM_SHARDS; ++i) {
             shard_locks.emplace_back(shards_[i].mutex);
@@ -358,7 +367,6 @@ public:
         std::ifstream in(filename, std::ios::binary);
         if (!in) return false;
 
-        // Reset global state
         for (size_t i = 0; i < NUM_SHARDS; ++i) shards_[i].data.clear();
         total_memtable_size_.store(0, std::memory_order_relaxed);
         sstables_.clear();
@@ -368,7 +376,6 @@ public:
         if (!in.read(reinterpret_cast<char*>(&size), sizeof(size))) return true; 
         if (size == 0) return true;
 
-        // Directly write the snapshot into a new highly-optimized SSTable file 
         std::string sst_filename = "node_" + std::to_string(node_id_) + "_sstable_" + std::to_string(sstable_id_counter_++) + ".sst";
         std::ofstream out(sst_filename, std::ios::binary | std::ios::trunc);
         

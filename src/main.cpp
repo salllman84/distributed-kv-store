@@ -9,6 +9,8 @@
 #include <vector>
 #include <csignal>
 #include <cstdlib>
+#include <thread>
+#include <chrono>
 
 // Global pointer so the signal handler can trigger a clean shutdown
 raft::RaftNode* g_raft_node = nullptr;
@@ -152,6 +154,8 @@ int main(int argc, char* argv[]) {
 
     server.start(port);
 
-    raft_node.stop();
-    return 0;
+    // Keep the main thread alive so the node can run in the background
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::hours(1));
+    }
 }

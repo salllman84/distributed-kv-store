@@ -1,23 +1,18 @@
-<<<<<<< HEAD
 # Build directory
 build/
 
-# Application logs
-logs/
-
-# Database runtime state
+# Database files
+*.sst
 *.wal
+*.dat
 *.snap
-*meta.dat
-=======
-# Build directory
-build/
+data/
 
-# Application logs
+# Logs and AI output
 logs/
+*.log
+.claude/
 
-# Database runtime state
-*.wal
-*.snap
-*meta.dat
->>>>>>> feature/disk-persestence
+# Temporary benchmark outputs
+*.csv
+*.png
