@@ -76,15 +76,15 @@ CMakeFiles/test_store.dir/tests/test_store.cpp.o: CMakeFiles/test_store.dir/flag
 CMakeFiles/test_store.dir/tests/test_store.cpp.o: /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp
 CMakeFiles/test_store.dir/tests/test_store.cpp.o: CMakeFiles/test_store.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_store.dir/tests/test_store.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_store.dir/tests/test_store.cpp.o -MF CMakeFiles/test_store.dir/tests/test_store.cpp.o.d -o CMakeFiles/test_store.dir/tests/test_store.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_store.dir/tests/test_store.cpp.o -MF CMakeFiles/test_store.dir/tests/test_store.cpp.o.d -o CMakeFiles/test_store.dir/tests/test_store.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp
 
 CMakeFiles/test_store.dir/tests/test_store.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_store.dir/tests/test_store.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp > CMakeFiles/test_store.dir/tests/test_store.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp > CMakeFiles/test_store.dir/tests/test_store.cpp.i
 
 CMakeFiles/test_store.dir/tests/test_store.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_store.dir/tests/test_store.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp -o CMakeFiles/test_store.dir/tests/test_store.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_store.cpp -o CMakeFiles/test_store.dir/tests/test_store.cpp.s
 
 # Object files for target test_store
 test_store_OBJECTS = \

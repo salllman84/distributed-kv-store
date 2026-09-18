@@ -76,29 +76,29 @@ CMakeFiles/test_network.dir/tests/test_network.cpp.o: CMakeFiles/test_network.di
 CMakeFiles/test_network.dir/tests/test_network.cpp.o: /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp
 CMakeFiles/test_network.dir/tests/test_network.cpp.o: CMakeFiles/test_network.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_network.dir/tests/test_network.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_network.dir/tests/test_network.cpp.o -MF CMakeFiles/test_network.dir/tests/test_network.cpp.o.d -o CMakeFiles/test_network.dir/tests/test_network.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_network.dir/tests/test_network.cpp.o -MF CMakeFiles/test_network.dir/tests/test_network.cpp.o.d -o CMakeFiles/test_network.dir/tests/test_network.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp
 
 CMakeFiles/test_network.dir/tests/test_network.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_network.dir/tests/test_network.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp > CMakeFiles/test_network.dir/tests/test_network.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp > CMakeFiles/test_network.dir/tests/test_network.cpp.i
 
 CMakeFiles/test_network.dir/tests/test_network.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_network.dir/tests/test_network.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp -o CMakeFiles/test_network.dir/tests/test_network.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/tests/test_network.cpp -o CMakeFiles/test_network.dir/tests/test_network.cpp.s
 
 CMakeFiles/test_network.dir/src/network/socket.cpp.o: CMakeFiles/test_network.dir/flags.make
 CMakeFiles/test_network.dir/src/network/socket.cpp.o: /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp
 CMakeFiles/test_network.dir/src/network/socket.cpp.o: CMakeFiles/test_network.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/test_network.dir/src/network/socket.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_network.dir/src/network/socket.cpp.o -MF CMakeFiles/test_network.dir/src/network/socket.cpp.o.d -o CMakeFiles/test_network.dir/src/network/socket.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_network.dir/src/network/socket.cpp.o -MF CMakeFiles/test_network.dir/src/network/socket.cpp.o.d -o CMakeFiles/test_network.dir/src/network/socket.cpp.o -c /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp
 
 CMakeFiles/test_network.dir/src/network/socket.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_network.dir/src/network/socket.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp > CMakeFiles/test_network.dir/src/network/socket.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp > CMakeFiles/test_network.dir/src/network/socket.cpp.i
 
 CMakeFiles/test_network.dir/src/network/socket.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_network.dir/src/network/socket.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp -o CMakeFiles/test_network.dir/src/network/socket.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/systemEngineer/systems-engineering/project/distributed-kv-store/src/network/socket.cpp -o CMakeFiles/test_network.dir/src/network/socket.cpp.s
 
 # Object files for target test_network
 test_network_OBJECTS = \

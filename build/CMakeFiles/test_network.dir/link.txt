@@ -1,1 +1,1 @@
-/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/test_network.dir/link.d CMakeFiles/test_network.dir/tests/test_network.cpp.o CMakeFiles/test_network.dir/src/network/socket.cpp.o -o test_network
+/usr/bin/g++ -Wl,--dependency-file=CMakeFiles/test_network.dir/link.d CMakeFiles/test_network.dir/tests/test_network.cpp.o CMakeFiles/test_network.dir/src/network/socket.cpp.o -o test_network
