@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/systemEngineer/systems-engineering/project/distributed-kv-store/build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
