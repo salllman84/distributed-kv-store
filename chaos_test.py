@@ -53,13 +53,13 @@ def chaos_task():
     time.sleep(1.0) # Let the writer get started
     for i in range(4): # Trigger 4 separate server crashes
         node = random.randint(1, 3)
-        print(f"\n[CHAOS] 😈 Simulating power failure on Node {node}...")
+        print(f"\n[CHAOS] Simulating power failure on Node {node}...")
         # Use -9 to bypass graceful shutdown, forcing the node to rely on its WAL/Snapshots
         subprocess.run(f"pkill -9 -f 'kv_node {node}'", shell=True, stderr=subprocess.DEVNULL)
         
         time.sleep(2.5) # Let the cluster elect a new leader and writer experience failure
         
-        print(f"[CHAOS] 🛠️ Restoring power to Node {node}...")
+        print(f"[CHAOS] Restoring power to Node {node}...")
         subprocess.Popen(f"./build/kv_node {node} 808{node} >> logs/node{node}.log 2>&1", shell=True)
         time.sleep(1.5)
 
@@ -87,10 +87,10 @@ if __name__ == "__main__":
         if resp == expected_val:
             success += 1
         else:
-            print(f"❌ DATA CORRUPTION! Key {key}: Expected '{expected_val}', Got '{resp}'")
+            print(f" DATA CORRUPTION! Key {key}: Expected '{expected_val}', Got '{resp}'")
             
     print("\n=== FINAL RESULTS ===")
     if success == expected_count and expected_count > 0:
-        print(f"✅ PASSED: 100% Data Integrity. All {success} keys mathematically verified.")
+        print(f" PASSED: 100% Data Integrity. All {success} keys mathematically verified.")
     else:
-        print(f"❌ FAILED: Survived {success}/{expected_count}. Check Raft logs for lost commits.")
+        print(f" FAILED: Survived {success}/{expected_count}. Check Raft logs for lost commits.")

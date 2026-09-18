@@ -4,7 +4,7 @@ import threading
 import sys
 
 if len(sys.argv) < 2:
-    print("❌ ERROR: You must specify the true Leader port.")
+    print(" ERROR: You must specify the true Leader port.")
     print("Run 'grep -a \"Won election\" logs/*.log' to find who won.")
     print("Usage: python3 authentic_benchmark.py <PORT>")
     exit(1)

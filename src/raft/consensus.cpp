@@ -47,7 +47,7 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
             std::lock_guard<std::mutex> lock(this->mtx_); 
             
             if (this->state_ == NodeState::LEADER) {
-                std::cout << "\n[RaftNode " << this->node_id_ << "] \033[1;31m🚨 STORAGE OVERLOAD DETECTED! 🚨\033[0m\n";
+                std::cout << "\n[RaftNode " << this->node_id_ << "] \033[1;31m STORAGE OVERLOAD DETECTED! \033[0m\n";
                 std::cout << "[RaftNode " << this->node_id_ << "] Gracefully stepping down to FOLLOWER to protect cluster tail latency.\n\n" << std::flush;
                 
                 this->state_ = NodeState::FOLLOWER; 
