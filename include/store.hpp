@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <functional> // REQUIRED FOR CPU HASHING & CALLBACKS
 #include <array>      // REQUIRED FOR LOCK STRIPING
+#include "config.hpp" // Feature toggles for ablation study
 
 namespace kvstore {
 
@@ -35,6 +36,9 @@ private:
     
     std::array<Shard, NUM_SHARDS> shards_;
     std::atomic<size_t> total_memtable_size_{0};
+    
+    // --- ABLATION: Global mutex for single-lock MemTable mode (when lock-striping disabled) ---
+    mutable std::shared_mutex global_memtable_mutex_;
 
     std::vector<std::string> sstables_; 
     mutable std::shared_mutex sstables_mutex_; 
@@ -96,14 +100,27 @@ private:
         std::cout << "[LSM-Tree Node " << node_id_ << "] Flushed Lock-Striped MemTable: " << filename << "\n" << std::flush;
 
         // ============================================================================
-        // CRITICAL FIX: Tripwire check OUTSIDE and BEFORE the atomic compaction guard
+        // ABLATION: Tripwire check - CONDITIONAL on enable_tripwire flag
         // ============================================================================
-        // This check MUST run on EVERY flush, regardless of compaction state.
+        // This check MUST run on EVERY flush IF enabled, regardless of compaction state.
         // If disk is saturated (current_sstable_count >= 6), the leader must step down
         // EVEN IF a compaction is already running. This is when the system is most at risk.
-        if (current_sstable_count >= COMPACTION_THRESHOLD + 2) { 
-            if (leader_stepdown_callback_) {
-                leader_stepdown_callback_();
+        // 
+        // ABLATION MODE: When disable, the system intentionally allows Gray Failures
+        // (network thread starvation) to demonstrate the value of the tripwire.
+        if (config::GlobalConfig::instance().enable_tripwire) {
+            if (current_sstable_count >= COMPACTION_THRESHOLD + 2) { 
+                if (leader_stepdown_callback_) {
+                    std::cout << "[LSM-Tree Node " << node_id_ << "] TRIPWIRE FIRED: " 
+                              << current_sstable_count << " SSTables detected. Signaling leader stepdown.\n" << std::flush;
+                    leader_stepdown_callback_();
+                }
+            }
+        } else {
+            // ABLATION: Tripwire disabled - system is vulnerable to Gray Failures
+            if (current_sstable_count >= COMPACTION_THRESHOLD + 2) {
+                std::cout << "[LSM-Tree Node " << node_id_ << "] WARNING: Disk saturation detected but tripwire DISABLED. "
+                          << "Gray failure likely!\n" << std::flush;
             }
         }
 
@@ -231,13 +248,37 @@ public:
     }
 
     void set(const std::string& key, const std::string& value) {
-        size_t idx = getShardIndex(key);
         bool should_flush = false;
-        {
+        
+        // ABLATION: Choose locking strategy based on enable_lock_striping flag
+        if (config::GlobalConfig::instance().enable_lock_striping) {
+            // STRIPED MODE: Use 16-way lock striping
+            size_t idx = getShardIndex(key);
             std::unique_lock<std::shared_mutex> lock(shards_[idx].mutex);
             auto [it, inserted] = shards_[idx].data.insert_or_assign(key, value);
             
             if (inserted) {
+                size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
+                if (current_size + 1 >= MEMTABLE_LIMIT) {
+                    should_flush = true;
+                }
+            }
+        } else {
+            // NAIVE MODE: Use single global mutex (simulates non-striped LSM-tree)
+            std::unique_lock<std::shared_mutex> lock(global_memtable_mutex_);
+            
+            // Find key in all shards
+            bool found = false;
+            for (size_t i = 0; i < NUM_SHARDS && !found; i++) {
+                if (shards_[i].data.find(key) != shards_[i].data.end()) {
+                    found = true;
+                    shards_[i].data.insert_or_assign(key, value);
+                    break;
+                }
+            }
+            if (!found) {
+                // Insert to first shard (naive round-robin)
+                shards_[0].data.insert_or_assign(key, value);
                 size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
                 if (current_size + 1 >= MEMTABLE_LIMIT) {
                     should_flush = true;
@@ -251,12 +292,25 @@ public:
     }
 
     std::optional<std::string> get(const std::string& key) const {
-        size_t idx = getShardIndex(key);
-        {
-            std::shared_lock<std::shared_mutex> lock(shards_[idx].mutex);
-            auto it = shards_[idx].data.find(key);
-            if (it != shards_[idx].data.end()) {
-                return it->second; 
+        // ABLATION: Choose locking strategy based on enable_lock_striping flag
+        if (config::GlobalConfig::instance().enable_lock_striping) {
+            // STRIPED MODE: Use 16-way lock striping
+            size_t idx = getShardIndex(key);
+            {
+                std::shared_lock<std::shared_mutex> lock(shards_[idx].mutex);
+                auto it = shards_[idx].data.find(key);
+                if (it != shards_[idx].data.end()) {
+                    return it->second; 
+                }
+            }
+        } else {
+            // NAIVE MODE: Use single global mutex
+            std::shared_lock<std::shared_mutex> lock(global_memtable_mutex_);
+            for (size_t i = 0; i < NUM_SHARDS; i++) {
+                auto it = shards_[i].data.find(key);
+                if (it != shards_[i].data.end()) {
+                    return it->second; 
+                }
             }
         }
 
@@ -271,9 +325,12 @@ public:
     }
 
     bool remove(const std::string& key) {
-        size_t idx = getShardIndex(key);
         bool should_flush = false;
-        {
+        
+        // ABLATION: Choose locking strategy based on enable_lock_striping flag
+        if (config::GlobalConfig::instance().enable_lock_striping) {
+            // STRIPED MODE: Use 16-way lock striping
+            size_t idx = getShardIndex(key);
             std::unique_lock<std::shared_mutex> lock(shards_[idx].mutex);
             auto [it, inserted] = shards_[idx].data.insert_or_assign(key, std::nullopt);
             if (inserted) {
@@ -282,7 +339,27 @@ public:
                     should_flush = true;
                 }
             }
+        } else {
+            // NAIVE MODE: Use single global mutex
+            std::unique_lock<std::shared_mutex> lock(global_memtable_mutex_);
+            
+            bool found = false;
+            for (size_t i = 0; i < NUM_SHARDS && !found; i++) {
+                if (shards_[i].data.find(key) != shards_[i].data.end()) {
+                    found = true;
+                    shards_[i].data.insert_or_assign(key, std::nullopt);
+                    break;
+                }
+            }
+            if (!found) {
+                shards_[0].data.insert_or_assign(key, std::nullopt);
+                size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
+                if (current_size + 1 >= MEMTABLE_LIMIT) {
+                    should_flush = true;
+                }
+            }
         }
+        
         if (should_flush) flushMemtableToDisk();
         return true;
     }

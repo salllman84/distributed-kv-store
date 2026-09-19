@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "raft/consensus.hpp"
 #include "common/protocol.hpp"
 #include "network/client.hpp"
@@ -8,6 +9,7 @@
 #include <chrono>
 #include <sstream>
 #include <algorithm>
+#include <atomic>
 
 namespace raft {
 
@@ -24,7 +26,8 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
       leader_lease_end_(std::chrono::steady_clock::time_point::min()),
       peers_(peers),
       store_(store),
-      running_(false) {
+      running_(false),
+      telemetry_start_time_(std::chrono::steady_clock::now()) {
     
     loadMetadata();
 
@@ -47,14 +50,19 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
             std::lock_guard<std::mutex> lock(this->mtx_); 
             
             if (this->state_ == NodeState::LEADER) {
-                std::cout << "\n[RaftNode " << this->node_id_ << "] \033[1;31m STORAGE OVERLOAD DETECTED! \033[0m\n";
-                std::cout << "[RaftNode " << this->node_id_ << "] Gracefully stepping down to FOLLOWER to protect cluster tail latency.\n\n" << std::flush;
-                
-                this->state_ = NodeState::FOLLOWER; 
-                this->voted_for_ = -1;
-                this->current_leader_ = -1;
-                this->persistMetadata();
-                this->last_heartbeat_time_ = std::chrono::steady_clock::now();
+                if (config::GlobalConfig::instance().enable_tripwire) {
+                    std::cout << "\n[RaftNode " << this->node_id_ << "] \033[1;31m STORAGE OVERLOAD DETECTED! \033[0m\n";
+                    std::cout << "[RaftNode " << this->node_id_ << "] Gracefully stepping down to FOLLOWER to protect cluster tail latency.\n\n" << std::flush;
+                    
+                    this->state_ = NodeState::FOLLOWER; 
+                    this->voted_for_ = -1;
+                    this->current_leader_ = -1;
+                    this->persistMetadata();
+                    this->last_heartbeat_time_ = std::chrono::steady_clock::now();
+                } else {
+                    // THE ABLATION TOGGLE: If tripwire is false, we do nothing and intentionally cause a Gray Failure
+                    std::cout << "\n[RaftNode " << this->node_id_ << "] [WARNING] Disk saturation detected but tripwire DISABLED. Gray failure likely!\n" << std::flush;
+                }
             }
         }).detach();
     });
@@ -82,6 +90,11 @@ void RaftNode::loadMetadata() {
 void RaftNode::start() {
     running_ = true;
     background_thread_ = std::thread(&RaftNode::runBackgroundLoop, this);
+    
+    // --- PHASE 2: Start telemetry thread ---
+    telemetry_start_time_ = std::chrono::steady_clock::now();
+    telemetry_thread_ = std::thread(&RaftNode::runTelemetryLoop, this);
+    
     std::cout << "[RaftNode " << node_id_ << "] Started in FOLLOWER state (Term: " << current_term_ << ")\n" << std::flush;
 }
 
@@ -90,6 +103,10 @@ void RaftNode::stop() {
         running_ = false;
         if (background_thread_.joinable()) {
             background_thread_.join();
+        }
+        // --- PHASE 2: Stop telemetry thread ---
+        if (telemetry_thread_.joinable()) {
+            telemetry_thread_.join();
         }
     }
 }
@@ -159,6 +176,10 @@ void RaftNode::startElection() {
         args.last_log_term = last_log_term;
 
         std::string payload = common::Protocol::serializeRequestVote(args);
+        
+        // --- PHASE 2: Record RequestVote RPC for telemetry ---
+        recordRequestVoteRPC();
+        
         auto reply_str = client.sendRpc(peer.ip, peer.port, payload, 50);
 
         if (reply_str.has_value()) {
@@ -293,6 +314,12 @@ void RaftNode::sendHeartbeats() {
         
         // --- THE FIX: Increased normal RPC timeout to 1 full second (1000ms) ---
         int timeout = ctx.is_snapshot ? 2000 : 1000;
+        
+        // --- PHASE 2: Record AppendEntries RPC for telemetry ---
+        if (!ctx.is_snapshot) {
+            recordAppendEntriesRPC();
+        }
+        
         auto reply_str = client.sendRpc(peer.ip, peer.port, ctx.payload_str, timeout);
 
         if (reply_str.has_value()) {
@@ -557,6 +584,95 @@ bool RaftNode::hasValidLease() const {
     std::unique_lock<std::mutex> lock(mtx_);
     if (state_ != NodeState::LEADER) return false;
     return std::chrono::steady_clock::now() < leader_lease_end_;
+}
+
+// --- PHASE 2: TELEMETRY IMPLEMENTATION ---
+
+std::string RaftNode::getStateString() const {
+    std::unique_lock<std::mutex> lock(mtx_);
+    switch(state_) {
+        case NodeState::FOLLOWER: return "FOLLOWER";
+        case NodeState::CANDIDATE: return "CANDIDATE";
+        case NodeState::LEADER: return "LEADER";
+        default: return "UNKNOWN";
+    }
+}
+
+uint64_t RaftNode::getMemoryUsageMB() const {
+    // Read memory usage from /proc/self/statm (RSS in pages)
+    std::ifstream statm("/proc/self/statm");
+    if (!statm.is_open()) {
+        return 0;  // Fallback if /proc not available
+    }
+    
+    uint64_t vsize, rss;
+    statm >> vsize >> rss;
+    statm.close();
+    
+    // Convert pages to MB (assuming 4KB pages)
+    uint64_t page_size = 4096;
+    return (rss * page_size) / (1024 * 1024);
+}
+
+void RaftNode::runTelemetryLoop() {
+    // Create CSV file for this node
+    std::string csv_file = "logs/node_" + std::to_string(node_id_) + "_telemetry.csv";
+    std::ofstream csv_out(csv_file, std::ios::trunc);
+    
+    if (!csv_out.is_open()) {
+        std::cerr << "[RaftNode " << node_id_ << "] Failed to open telemetry CSV: " << csv_file << "\n" << std::flush;
+        return;
+    }
+    
+    // Write CSV header
+    csv_out << "Timestamp_ms,Raft_State,Outgoing_RPCs_Per_Sec,Memory_Usage_MB\n";
+    csv_out.flush();
+    
+    std::cout << "[RaftNode " << node_id_ << "] Telemetry tracking started. Logging to: " << csv_file << "\n" << std::flush;
+    
+    // Telemetry collection loop (500ms intervals)
+    while (running_) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        
+        // Calculate RPC rate
+        uint64_t current_rpc_count = rpc_counter_append_entries_.load() + rpc_counter_request_vote_.load();
+        uint64_t rpc_delta = current_rpc_count - last_rpc_count_;
+        uint64_t rpcs_per_sec = (rpc_delta * 2);  // *2 because we sample every 500ms
+        last_rpc_count_ = current_rpc_count;
+        
+        // Get current state and memory
+        std::string state = getStateString();
+        uint64_t memory_mb = getMemoryUsageMB();
+        
+        // Calculate elapsed time in milliseconds
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - telemetry_start_time_
+        );
+        uint64_t timestamp_ms = elapsed.count();
+        
+        // Write to CSV
+        csv_out << timestamp_ms << ","
+                << state << ","
+                << rpcs_per_sec << ","
+                << memory_mb << "\n";
+        csv_out.flush();
+        
+        // Debug output (optional, disable for production)
+        // std::cout << "[Telemetry " << node_id_ << "] T=" << timestamp_ms << "ms, "
+        //           << "State=" << state << ", "
+        //           << "RPCs/s=" << rpcs_per_sec << ", "
+        //           << "Mem=" << memory_mb << "MB\n" << std::flush;
+    }
+    
+    csv_out.close();
+}
+
+void RaftNode::recordRequestVoteRPC() {
+    rpc_counter_request_vote_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void RaftNode::recordAppendEntriesRPC() {
+    rpc_counter_append_entries_.fetch_add(1, std::memory_order_relaxed);
 }
 
 } // namespace raft

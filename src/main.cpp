@@ -3,6 +3,7 @@
 #include "network/socket.hpp"
 #include "raft/consensus.hpp"
 #include "common/protocol.hpp"
+#include "config.hpp"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -33,8 +34,26 @@ int main(int argc, char* argv[]) {
     int node_id = 1;
     int port = 8081;
 
+    // Parse positional arguments
     if (argc > 1) node_id = std::stoi(argv[1]);
     if (argc > 2) port = std::stoi(argv[2]);
+
+    // Parse optional feature toggle flags
+    for (int i = 3; i < argc; i++) {
+        std::string arg = argv[i];
+        
+        if (arg == "--enable-tripwire=true" || arg == "--enable-tripwire") {
+            config::GlobalConfig::instance().enable_tripwire = true;
+        } else if (arg == "--enable-tripwire=false") {
+            config::GlobalConfig::instance().enable_tripwire = false;
+        } else if (arg == "--enable-lock-striping=true" || arg == "--enable-lock-striping") {
+            config::GlobalConfig::instance().enable_lock_striping = true;
+        } else if (arg == "--enable-lock-striping=false") {
+            config::GlobalConfig::instance().enable_lock_striping = false;
+        }
+    }
+    
+    config::GlobalConfig::instance().printConfig();
 
     kvstore::Store db(node_id);
 

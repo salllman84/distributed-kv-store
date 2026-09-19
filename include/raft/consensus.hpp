@@ -22,6 +22,15 @@ struct PeerInfo {
 
 class RaftNode {
 private:
+
+
+    std::chrono::steady_clock::time_point telemetry_start_time_;
+    std::thread telemetry_thread_;
+    std::atomic<uint64_t> rpc_counter_append_entries_{0};
+    std::atomic<uint64_t> rpc_counter_request_vote_{0};
+    uint64_t last_rpc_count_{0};
+
+
     // Persistent state on all servers
     int node_id_;
     uint64_t current_term_;
@@ -71,6 +80,13 @@ private:
     void loadMetadata();
 
 public:
+
+    void recordRequestVoteRPC();
+    void recordAppendEntriesRPC();
+    std::string getStateString() const;
+    uint64_t getMemoryUsageMB() const;
+    void runTelemetryLoop();
+
     RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Store& store);
     ~RaftNode();
 
