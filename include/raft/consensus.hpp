@@ -22,56 +22,78 @@ struct PeerInfo {
 
 class RaftNode {
 private:
-
-
+    // -------------------------------------------------------------------------
+    // Telemetry
+    // -------------------------------------------------------------------------
     std::chrono::steady_clock::time_point telemetry_start_time_;
     std::thread telemetry_thread_;
     std::atomic<uint64_t> rpc_counter_append_entries_{0};
     std::atomic<uint64_t> rpc_counter_request_vote_{0};
     uint64_t last_rpc_count_{0};
 
-
+    // -------------------------------------------------------------------------
     // Persistent state on all servers
+    // -------------------------------------------------------------------------
     int node_id_;
     uint64_t current_term_;
     int voted_for_;
     RaftLog log_;
 
+    // -------------------------------------------------------------------------
     // Volatile state tracking the known leader
-    int current_leader_; 
+    // -------------------------------------------------------------------------
+    int current_leader_;
 
+    // -------------------------------------------------------------------------
     // Volatile state on all servers
+    // -------------------------------------------------------------------------
     NodeState state_;
     uint64_t commit_index_;
     uint64_t last_applied_;
 
-    // Compaction State
-    size_t max_log_size_; 
-    void checkAndTriggerSnapshot(); 
+    // -------------------------------------------------------------------------
+    // Compaction state
+    // -------------------------------------------------------------------------
+    size_t max_log_size_;
+    void checkAndTriggerSnapshot();
 
-    // <--- ADDED: Linearizable Read Lease State
+    // -------------------------------------------------------------------------
+    // Linearizable read lease
+    // -------------------------------------------------------------------------
     std::chrono::steady_clock::time_point leader_lease_end_;
 
+    // -------------------------------------------------------------------------
     // Volatile state on leaders (reinitialized after election)
+    // -------------------------------------------------------------------------
     std::vector<uint64_t> next_index_;
     std::vector<uint64_t> match_index_;
 
+    // -------------------------------------------------------------------------
     // Cluster topology
+    // -------------------------------------------------------------------------
     std::vector<PeerInfo> peers_;
 
+    // -------------------------------------------------------------------------
     // Reference to local state machine
+    // -------------------------------------------------------------------------
     kvstore::Store& store_;
 
+    // -------------------------------------------------------------------------
     // Concurrency control
+    // -------------------------------------------------------------------------
     mutable std::mutex mtx_;
     std::atomic<bool> running_;
 
+    // -------------------------------------------------------------------------
     // Election timeout management
+    // -------------------------------------------------------------------------
     std::chrono::milliseconds election_timeout_;
     std::chrono::steady_clock::time_point last_heartbeat_time_;
     std::thread background_thread_;
 
-    // Helper methods
+    // -------------------------------------------------------------------------
+    // Internal helpers
+    // -------------------------------------------------------------------------
     void runBackgroundLoop();
     void startElection();
     void sendHeartbeats();
@@ -79,14 +101,34 @@ private:
     void persistMetadata();
     void loadMetadata();
 
-public:
+    // =========================================================================
+    // ASYNC EVENT TRIPWIRE — main-thread step-down handler.
+    // -------------------------------------------------------------------------
+    // Invoked EXCLUSIVELY from runBackgroundLoop() after the Store's
+    // storage_degraded_flag_ has been consumed. Acquires mtx_ and performs
+    // the FOLLOWER transition under the same lock that guards every other
+    // Raft event, so the step-down is serialized with AppendEntries,
+    // RequestVote, propose(), and election timeouts.
+    //
+    // This replaces the previous design where a detached thread inside the
+    // LSM-tree compaction path acquired mtx_ out-of-band and raced with the
+    // Raft event loop.
+    // =========================================================================
+    void checkStorageDegraded();
 
+public:
+    // -------------------------------------------------------------------------
+    // Telemetry API
+    // -------------------------------------------------------------------------
     void recordRequestVoteRPC();
     void recordAppendEntriesRPC();
     std::string getStateString() const;
     uint64_t getMemoryUsageMB() const;
     void runTelemetryLoop();
 
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
     RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Store& store);
     ~RaftNode();
 
@@ -94,25 +136,40 @@ public:
     RaftNode(const RaftNode&) = delete;
     RaftNode& operator=(const RaftNode&) = delete;
 
-    // Lifecycle control
     void start();
     void stop();
 
-    // RPC Handlers called by the network layer
+    // -------------------------------------------------------------------------
+    // RPC handlers called by the network layer
+    // -------------------------------------------------------------------------
     RequestVoteReply handleRequestVote(const RequestVoteArgs& args);
     AppendEntriesReply handleAppendEntries(const AppendEntriesArgs& args);
     InstallSnapshotReply handleInstallSnapshot(const InstallSnapshotArgs& args);
 
+    // -------------------------------------------------------------------------
     // Client request entrypoint
+    // -------------------------------------------------------------------------
     bool propose(const std::string& command, uint64_t& out_index);
 
+    // -------------------------------------------------------------------------
     // State getters for testing and monitoring
+    // -------------------------------------------------------------------------
     NodeState getState() const;
     uint64_t getCurrentTerm() const;
     int getLeaderId() const;
-    
-    // <--- ADDED: Checks if leader lease is valid for safe reads
+
+    // -------------------------------------------------------------------------
+    // Linearizable read lease check
+    // -------------------------------------------------------------------------
     bool hasValidLease() const;
+
+    // =========================================================================
+    // NOTE: registerStepDownCallback() has been REMOVED.
+    // -------------------------------------------------------------------------
+    // The Raft <-> Store boundary is now a single std::atomic<bool> owned by
+    // the Store (storage_degraded_flag_) and consumed exclusively by
+    // runBackgroundLoop(). No external thread may mutate Raft state.
+    // =========================================================================
 };
 
 } // namespace raft

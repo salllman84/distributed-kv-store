@@ -14,8 +14,7 @@
 #include <thread>
 #include <atomic>
 #include <algorithm>
-#include <functional> // REQUIRED FOR CPU HASHING & CALLBACKS
-#include <array>      // REQUIRED FOR LOCK STRIPING
+#include <array>
 #include "config.hpp" // Feature toggles for ablation study
 
 namespace kvstore {
@@ -23,33 +22,45 @@ namespace kvstore {
 class Store {
 private:
     int node_id_;
-    
-    // ----------------------------------------------------
+
+    // =====================================================================
     // INNOVATION 1: Lock-Striped Sharded MemTable
-    // ----------------------------------------------------
+    // =====================================================================
     static constexpr size_t NUM_SHARDS = 16;
-    
+
     struct Shard {
         std::map<std::string, std::optional<std::string>> data;
-        mutable std::shared_mutex mutex; // Each shard gets its own lock!
+        mutable std::shared_mutex mutex; // Each shard gets its own lock
     };
-    
+
     std::array<Shard, NUM_SHARDS> shards_;
     std::atomic<size_t> total_memtable_size_{0};
-    
-    // --- ABLATION: Global mutex for single-lock MemTable mode (when lock-striping disabled) ---
+
+    // --- ABLATION: Global mutex for single-lock MemTable mode ---
     mutable std::shared_mutex global_memtable_mutex_;
 
-    std::vector<std::string> sstables_; 
-    mutable std::shared_mutex sstables_mutex_; 
-    
-    std::atomic<int> sstable_id_counter_{0};   
-    std::atomic<bool> is_compacting_{false};   
+    std::vector<std::string> sstables_;
+    mutable std::shared_mutex sstables_mutex_;
 
-    // --- INNOVATION 3: Compaction-Aware Consensus Tripwire ---
-    std::function<void()> leader_stepdown_callback_ = nullptr;
+    std::atomic<int> sstable_id_counter_{0};
+    std::atomic<bool> is_compacting_{false};
 
-    const size_t MEMTABLE_LIMIT = 50; 
+    // =====================================================================
+    // INNOVATION 3: Async Event-Driven Compaction Tripwire
+    // ---------------------------------------------------------------------
+    // The LSM-tree NEVER mutates Raft state directly. When the SSTable
+    // threshold is breached, the flush path only publishes a single-bit
+    // event to this atomic flag. The Raft main tick thread polls and
+    // consumes it, then performs the step-down transition while holding
+    // its own state mutex — fully serialized with AppendEntries /
+    // RequestVote / propose().
+    //
+    // This replaces the previous design where a detached thread acquired
+    // the Raft mutex out-of-band and raced with the Raft event loop.
+    // =====================================================================
+    std::atomic<bool> storage_degraded_flag_{false};
+
+    const size_t MEMTABLE_LIMIT = 50;
     const size_t COMPACTION_THRESHOLD = 4;
 
     size_t getShardIndex(const std::string& key) const {
@@ -58,19 +69,20 @@ private:
 
     void flushMemtableToDisk() {
         std::map<std::string, std::optional<std::string>> frozen_memtable;
-        
+
         for (size_t i = 0; i < NUM_SHARDS; ++i) {
             std::unique_lock<std::shared_mutex> lock(shards_[i].mutex);
-            frozen_memtable.merge(shards_[i].data); 
+            frozen_memtable.merge(shards_[i].data);
         }
-        
+
         total_memtable_size_.store(0, std::memory_order_relaxed);
 
         if (frozen_memtable.empty()) return;
 
-        std::string filename = "node_" + std::to_string(node_id_) + "_sstable_" + std::to_string(sstable_id_counter_++) + ".sst";
+        std::string filename = "node_" + std::to_string(node_id_) + "_sstable_"
+                             + std::to_string(sstable_id_counter_++) + ".sst";
         std::ofstream out(filename, std::ios::binary | std::ios::trunc);
-        
+
         size_t size = frozen_memtable.size();
         out.write(reinterpret_cast<const char*>(&size), sizeof(size));
 
@@ -96,43 +108,47 @@ private:
             sstables_.push_back(filename);
             current_sstable_count = sstables_.size();
         }
-        
-        std::cout << "[LSM-Tree Node " << node_id_ << "] Flushed Lock-Striped MemTable: " << filename << "\n" << std::flush;
 
-        // ============================================================================
-        // ABLATION: Tripwire check - CONDITIONAL on enable_tripwire flag
-        // ============================================================================
-        // This check MUST run on EVERY flush IF enabled, regardless of compaction state.
-        // If disk is saturated (current_sstable_count >= 6), the leader must step down
-        // EVEN IF a compaction is already running. This is when the system is most at risk.
-        // 
-        // ABLATION MODE: When disable, the system intentionally allows Gray Failures
-        // (network thread starvation) to demonstrate the value of the tripwire.
-        if (config::GlobalConfig::instance().enable_tripwire) {
-            if (current_sstable_count >= COMPACTION_THRESHOLD + 2) { 
-                if (leader_stepdown_callback_) {
-                    std::cout << "[LSM-Tree Node " << node_id_ << "] TRIPWIRE FIRED: " 
-                              << current_sstable_count << " SSTables detected. Signaling leader stepdown.\n" << std::flush;
-                    leader_stepdown_callback_();
-                }
-            }
-        } else {
-            // ABLATION: Tripwire disabled - system is vulnerable to Gray Failures
-            if (current_sstable_count >= COMPACTION_THRESHOLD + 2) {
-                std::cout << "[LSM-Tree Node " << node_id_ << "] WARNING: Disk saturation detected but tripwire DISABLED. "
+        std::cout << "[LSM-Tree Node " << node_id_
+                  << "] Flushed Lock-Striped MemTable: " << filename << "\n" << std::flush;
+
+        // =====================================================================
+        // ASYNC EVENT TRIPWIRE — SIGNAL ONLY, NEVER MUTATE RAFT STATE HERE.
+        // ---------------------------------------------------------------------
+        // If disk is saturated, publish a single-bit event. The Raft main
+        // tick thread is the sole consumer and the sole mutator of Raft
+        // state. This guarantees the step-down is serialized with every
+        // other Raft event (AppendEntries, RequestVote, propose).
+        //
+        // ABLATION MODE: When disabled, we intentionally do NOT signal, so
+        // the system exhibits Gray Failure (network thread starvation).
+        // =====================================================================
+        if (current_sstable_count >= COMPACTION_THRESHOLD + 2) {
+            if (config::GlobalConfig::instance().enable_tripwire) {
+                std::cout << "[LSM-Tree Node " << node_id_
+                          << "] ASYNC EVENT TRIPWIRE SIGNALED: "
+                          << current_sstable_count
+                          << " SSTables detected. Posting storage-degraded event.\n"
+                          << std::flush;
+                storage_degraded_flag_.store(true, std::memory_order_release);
+            } else {
+                std::cout << "[LSM-Tree Node " << node_id_
+                          << "] WARNING: Disk saturation detected but tripwire DISABLED. "
                           << "Gray failure likely!\n" << std::flush;
             }
         }
 
-        // ============================================================================
-        // Only after the tripwire has fired, attempt to spawn a compaction if needed
-        // ============================================================================
+        // =====================================================================
+        // Only after the tripwire has fired, attempt to spawn a compaction
+        // if needed.
+        // =====================================================================
         bool expected = false;
-        if (current_sstable_count >= COMPACTION_THRESHOLD && is_compacting_.compare_exchange_strong(expected, true)) {
+        if (current_sstable_count >= COMPACTION_THRESHOLD
+            && is_compacting_.compare_exchange_strong(expected, true)) {
             std::thread([this]() {
                 this->compactSSTables();
                 this->is_compacting_.store(false);
-            }).detach(); 
+            }).detach();
         }
     }
 
@@ -143,9 +159,12 @@ private:
             files_to_compact = sstables_;
         }
         if (files_to_compact.empty()) return;
-        std::cout << "[LSM-Tree Node " << node_id_ << "] Starting Async Major Compaction...\n" << std::flush;
+
+        std::cout << "[LSM-Tree Node " << node_id_
+                  << "] Starting Async Major Compaction...\n" << std::flush;
+
         // --- DETERMINISTIC FAULT INJECTION ---
-        // Simulating a 100ms EBS volume latency spike to test Consensus step-down
+        // Simulating a 5s EBS volume latency spike to test Consensus step-down.
         std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
         std::map<std::string, std::string> compacted_data;
@@ -159,10 +178,10 @@ private:
                     in.read(reinterpret_cast<char*>(&k_len), sizeof(k_len));
                     std::string k(k_len, '\0');
                     in.read(&k[0], k_len);
-                    
+
                     bool is_tombstone;
                     in.read(reinterpret_cast<char*>(&is_tombstone), sizeof(is_tombstone));
-                    
+
                     if (is_tombstone) {
                         compacted_data.erase(k);
                     } else {
@@ -176,7 +195,9 @@ private:
             }
         }
 
-        std::string compacted_filename = "node_" + std::to_string(node_id_) + "_sstable_" + std::to_string(sstable_id_counter_++) + "_compacted.sst";
+        std::string compacted_filename = "node_" + std::to_string(node_id_)
+                                       + "_sstable_" + std::to_string(sstable_id_counter_++)
+                                       + "_compacted.sst";
         std::ofstream out(compacted_filename, std::ios::binary | std::ios::trunc);
         size_t size = compacted_data.size();
         out.write(reinterpret_cast<const char*>(&size), sizeof(size));
@@ -207,10 +228,12 @@ private:
         for (const auto& sst : files_to_compact) {
             std::remove(sst.c_str());
         }
-        std::cout << "[LSM-Tree Node " << node_id_ << "] Async Compaction complete.\n" << std::flush;
+        std::cout << "[LSM-Tree Node " << node_id_
+                  << "] Async Compaction complete.\n" << std::flush;
     }
 
-    bool searchSSTable(const std::string& filename, const std::string& key, std::optional<std::string>& result) const {
+    bool searchSSTable(const std::string& filename, const std::string& key,
+                       std::optional<std::string>& result) const {
         std::ifstream in(filename, std::ios::binary);
         if (!in) return false;
         size_t size;
@@ -242,21 +265,27 @@ public:
     explicit Store(int node_id = 0) : node_id_(node_id) {}
     ~Store() = default;
 
-    // Register the Raft layer callback
-    void registerStepDownCallback(std::function<void()> cb) {
-        leader_stepdown_callback_ = std::move(cb);
+    // =====================================================================
+    // ASYNC EVENT TRIPWIRE — consumer API
+    // ---------------------------------------------------------------------
+    // Called ONLY from the Raft main tick thread. Atomically reads and
+    // clears the storage-degraded event. Returns true iff an event was
+    // pending. Never blocks, never takes any lock.
+    // =====================================================================
+    bool consumeStorageDegradedFlag() {
+        return storage_degraded_flag_.exchange(false, std::memory_order_acq_rel);
     }
 
     void set(const std::string& key, const std::string& value) {
         bool should_flush = false;
-        
+
         // ABLATION: Choose locking strategy based on enable_lock_striping flag
         if (config::GlobalConfig::instance().enable_lock_striping) {
             // STRIPED MODE: Use 16-way lock striping
             size_t idx = getShardIndex(key);
             std::unique_lock<std::shared_mutex> lock(shards_[idx].mutex);
             auto [it, inserted] = shards_[idx].data.insert_or_assign(key, value);
-            
+
             if (inserted) {
                 size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
                 if (current_size + 1 >= MEMTABLE_LIMIT) {
@@ -264,10 +293,9 @@ public:
                 }
             }
         } else {
-            // NAIVE MODE: Use single global mutex (simulates non-striped LSM-tree)
+            // NAIVE MODE: Use single global mutex
             std::unique_lock<std::shared_mutex> lock(global_memtable_mutex_);
-            
-            // Find key in all shards
+
             bool found = false;
             for (size_t i = 0; i < NUM_SHARDS && !found; i++) {
                 if (shards_[i].data.find(key) != shards_[i].data.end()) {
@@ -277,7 +305,6 @@ public:
                 }
             }
             if (!found) {
-                // Insert to first shard (naive round-robin)
                 shards_[0].data.insert_or_assign(key, value);
                 size_t current_size = total_memtable_size_.fetch_add(1, std::memory_order_relaxed);
                 if (current_size + 1 >= MEMTABLE_LIMIT) {
@@ -285,7 +312,7 @@ public:
                 }
             }
         }
-        
+
         if (should_flush) {
             flushMemtableToDisk();
         }
@@ -300,7 +327,7 @@ public:
                 std::shared_lock<std::shared_mutex> lock(shards_[idx].mutex);
                 auto it = shards_[idx].data.find(key);
                 if (it != shards_[idx].data.end()) {
-                    return it->second; 
+                    return it->second;
                 }
             }
         } else {
@@ -309,7 +336,7 @@ public:
             for (size_t i = 0; i < NUM_SHARDS; i++) {
                 auto it = shards_[i].data.find(key);
                 if (it != shards_[i].data.end()) {
-                    return it->second; 
+                    return it->second;
                 }
             }
         }
@@ -318,7 +345,7 @@ public:
         for (auto rit = sstables_.rbegin(); rit != sstables_.rend(); ++rit) {
             std::optional<std::string> result;
             if (searchSSTable(*rit, key, result)) {
-                return result; 
+                return result;
             }
         }
         return std::nullopt;
@@ -326,7 +353,7 @@ public:
 
     bool remove(const std::string& key) {
         bool should_flush = false;
-        
+
         // ABLATION: Choose locking strategy based on enable_lock_striping flag
         if (config::GlobalConfig::instance().enable_lock_striping) {
             // STRIPED MODE: Use 16-way lock striping
@@ -342,7 +369,7 @@ public:
         } else {
             // NAIVE MODE: Use single global mutex
             std::unique_lock<std::shared_mutex> lock(global_memtable_mutex_);
-            
+
             bool found = false;
             for (size_t i = 0; i < NUM_SHARDS && !found; i++) {
                 if (shards_[i].data.find(key) != shards_[i].data.end()) {
@@ -359,7 +386,7 @@ public:
                 }
             }
         }
-        
+
         if (should_flush) flushMemtableToDisk();
         return true;
     }
@@ -373,10 +400,10 @@ public:
         sstables_.clear();
         total_memtable_size_.store(0);
     }
-    
+
     bool saveSnapshot(const std::string& filename) const {
         std::map<std::string, std::string> logical_state;
-        
+
         std::vector<std::string> current_sstables;
         {
             std::shared_lock<std::shared_mutex> sst_lock(sstables_mutex_);
@@ -393,12 +420,13 @@ public:
                     in.read(reinterpret_cast<char*>(&k_len), sizeof(k_len));
                     std::string k(k_len, '\0');
                     in.read(&k[0], k_len);
-                    
+
                     bool is_tombstone;
                     in.read(reinterpret_cast<char*>(&is_tombstone), sizeof(is_tombstone));
-                    
-                    if (is_tombstone) logical_state.erase(k);
-                    else {
+
+                    if (is_tombstone) {
+                        logical_state.erase(k);
+                    } else {
                         size_t v_len;
                         in.read(reinterpret_cast<char*>(&v_len), sizeof(v_len));
                         std::string v(v_len, '\0');
@@ -440,7 +468,7 @@ public:
             shard_locks.emplace_back(shards_[i].mutex);
         }
         std::unique_lock<std::shared_mutex> sst_lock(sstables_mutex_);
-        
+
         std::ifstream in(filename, std::ios::binary);
         if (!in) return false;
 
@@ -448,27 +476,28 @@ public:
         total_memtable_size_.store(0, std::memory_order_relaxed);
         sstables_.clear();
         sstable_id_counter_ = 0;
-        
+
         size_t size;
-        if (!in.read(reinterpret_cast<char*>(&size), sizeof(size))) return true; 
+        if (!in.read(reinterpret_cast<char*>(&size), sizeof(size))) return true;
         if (size == 0) return true;
 
-        std::string sst_filename = "node_" + std::to_string(node_id_) + "_sstable_" + std::to_string(sstable_id_counter_++) + ".sst";
+        std::string sst_filename = "node_" + std::to_string(node_id_)
+                                 + "_sstable_" + std::to_string(sstable_id_counter_++) + ".sst";
         std::ofstream out(sst_filename, std::ios::binary | std::ios::trunc);
-        
+
         out.write(reinterpret_cast<const char*>(&size), sizeof(size));
 
         for (size_t i = 0; i < size; ++i) {
             size_t k_len, v_len;
-            
+
             in.read(reinterpret_cast<char*>(&k_len), sizeof(k_len));
             std::string k(k_len, '\0');
             in.read(&k[0], k_len);
-            
+
             in.read(reinterpret_cast<char*>(&v_len), sizeof(v_len));
             std::string v(v_len, '\0');
             in.read(&v[0], v_len);
-            
+
             out.write(reinterpret_cast<const char*>(&k_len), sizeof(k_len));
             out.write(k.data(), k_len);
             bool tomb = false;
