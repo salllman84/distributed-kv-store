@@ -33,15 +33,15 @@ def plot_telemetry():
         
         plt.plot(normalized_times, rpcs, label=f'Node {node_id} RPCs/sec', linewidth=2)
 
-    plt.title("Raft RPC Throughput During Gray Failure (Tripwire Disabled)", fontsize=14, fontweight='bold')
+    plt.title("Raft RPC Throughput During Gray Failure (Tripwire Enabled)", fontsize=14, fontweight='bold')
     plt.xlabel("Time (seconds)", fontsize=12)
     plt.ylabel("Outgoing RPCs / Sec", fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend()
     plt.tight_layout()
     
-    plt.savefig("gray_failure_rpc_spike.png", dpi=300)
-    print("Graph saved as gray_failure_rpc_spike.png")
+    plt.savefig("optimized_resilient_cluster.png", dpi=300)
+    print("Graph saved as optimized_resilient_cluster.png")
 
 if __name__ == "__main__":
     plot_telemetry()
