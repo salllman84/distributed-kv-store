@@ -10,24 +10,12 @@
 #include <sstream>
 #include <algorithm>
 #include <atomic>
+#include <functional>   // std::greater<uint64_t>
 
 namespace raft {
 
 // =============================================================================
 // CONSTRUCTOR
-// =============================================================================
-// CHANGE FROM PREVIOUS VERSION:
-//   The old constructor called store_.registerStepDownCallback([this]() {
-//       std::thread([this]() { std::lock_guard<std::mutex> lock(mtx_); ... }).detach();
-//   });
-//   That detached thread mutated Raft state from an arbitrary background thread
-//   and raced with AppendEntries / RequestVote / propose().
-//
-// NEW DESIGN:
-//   The Store now publishes a single atomic event (storage_degraded_flag_).
-//   The Raft main tick thread (runBackgroundLoop) consumes it and performs
-//   the step-down under mtx_, serialized with every other Raft event.
-//   No callback registration is required — the boundary is a single atomic.
 // =============================================================================
 RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Store& store)
     : node_id_(node_id),
@@ -47,6 +35,10 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
 
     loadMetadata();
 
+    // Preserve the persisted commit index across the snapshot reset below.
+    // loadMetadata() stashed it in commit_index_ (or left it at 0).
+    uint64_t persisted_commit = commit_index_;
+
     std::string snap_file = "node_" + std::to_string(node_id_) + ".snap";
     if (store_.loadSnapshot(snap_file)) {
         std::cout << "[RaftNode " << node_id_ << "] Loaded State Machine Snapshot from disk.\n" << std::flush;
@@ -55,17 +47,33 @@ RaftNode::RaftNode(int node_id, const std::vector<PeerInfo>& peers, kvstore::Sto
     last_applied_ = log_.getLastIncludedIndex();
     commit_index_ = log_.getLastIncludedIndex();
 
+    // =========================================================================
+    // WAL REPLAY ON STARTUP
+    // -------------------------------------------------------------------------
+    // Without this, a node that was SIGKILLed retains its durable WAL but its
+    // in-memory state machine is empty. It never replays entries 1..N, and the
+    // client-visible state diverges from the cluster.
+    //
+    // We replay entries from last_applied_ (the snapshot boundary) up to the
+    // persisted commit index. Entries beyond persisted_commit may or may not
+    // be committed; the leader will re-confirm them via AppendEntries.
+    // =========================================================================
+    uint64_t replay_to = std::min(persisted_commit, log_.lastIndex());
+    if (replay_to > commit_index_) {
+        commit_index_ = replay_to;
+        std::cout << "[RaftNode " << node_id_
+                  << "] Replaying WAL to index " << commit_index_
+                  << " into state machine...\n" << std::flush;
+        applyLogsToStore();
+        std::cout << "[RaftNode " << node_id_
+                  << "] WAL replay complete. last_applied_=" << last_applied_ << "\n" << std::flush;
+    }
+
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(150, 300);
     election_timeout_ = std::chrono::milliseconds(dis(gen));
     last_heartbeat_time_ = std::chrono::steady_clock::now();
-
-    // -------------------------------------------------------------------------
-    // REMOVED: store_.registerStepDownCallback(...) + detached thread.
-    // The Store now signals via storage_degraded_flag_ (std::atomic<bool>).
-    // The Raft main tick thread polls and consumes it — see runBackgroundLoop().
-    // -------------------------------------------------------------------------
 }
 
 RaftNode::~RaftNode() {
@@ -78,7 +86,10 @@ RaftNode::~RaftNode() {
 void RaftNode::persistMetadata() {
     std::ofstream outfile("node_" + std::to_string(node_id_) + "_meta.dat", std::ios::trunc);
     if (outfile.is_open()) {
-        outfile << current_term_ << " " << voted_for_ << "\n";
+        // Third field: commit_index_. Persisting it lets a restarted node
+        // replay its durable WAL into the state machine without waiting for
+        // the leader to re-confirm the commit index via AppendEntries.
+        outfile << current_term_ << " " << voted_for_ << " " << commit_index_ << "\n";
     }
 }
 
@@ -86,8 +97,21 @@ void RaftNode::loadMetadata() {
     std::ifstream infile("node_" + std::to_string(node_id_) + "_meta.dat");
     if (infile.is_open()) {
         infile >> current_term_ >> voted_for_;
+
+        // Optional third field: persisted commit_index_. Absent in metadata
+        // files written by older builds; the default of 0 is safe — the
+        // leader will re-confirm the commit index via AppendEntries.
+        uint64_t persisted_commit = 0;
+        if (infile >> persisted_commit) {
+            // Stash it in commit_index_. The constructor will preserve this
+            // value across the post-snapshot reset and then use it to replay
+            // the durable portion of the WAL.
+            commit_index_ = persisted_commit;
+        }
+
         std::cout << "[RaftNode " << node_id_ << "] Loaded metadata from disk: term="
-                  << current_term_ << ", voted_for=" << voted_for_ << "\n" << std::flush;
+                  << current_term_ << ", voted_for=" << voted_for_
+                  << ", commit=" << commit_index_ << "\n" << std::flush;
     }
 }
 
@@ -108,6 +132,9 @@ void RaftNode::start() {
 void RaftNode::stop() {
     if (running_) {
         running_ = false;
+        // FIX D: wake the tick thread immediately so it observes running_ = false
+        // instead of waiting for the 50ms wait_for to time out.
+        tick_cv_.notify_all();
         if (background_thread_.joinable()) {
             background_thread_.join();
         }
@@ -118,36 +145,46 @@ void RaftNode::stop() {
 }
 
 // =============================================================================
-// MAIN RAFT TICK LOOP — the ONLY thread permitted to transition Raft state.
-// =============================================================================
-// Polls the async event tripwire at the top of every tick. If the LSM-tree
-// has signaled storage degradation, we consume the flag and execute the
-// step-down here, under mtx_, so it is serialized with AppendEntries,
-// RequestVote, propose(), and election timeouts.
+// MAIN RAFT TICK LOOP
 // =============================================================================
 void RaftNode::runBackgroundLoop() {
     while (running_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        // -------------------------------------------------------------------
+        // FIX D: wait up to 50ms, or wake early if propose() signaled us.
+        // -------------------------------------------------------------------
+        // The predicate short-circuits the wait if commit_pending_ is set,
+        // so a propose() that raced the previous cycle is not lost. stop()
+        // also sets running_ = false and notifies, so shutdown is immediate.
+        // -------------------------------------------------------------------
+        {
+            std::unique_lock<std::mutex> lock(mtx_);
+            tick_cv_.wait_for(lock, std::chrono::milliseconds(50),
+                [this]() {
+                    return commit_pending_.load(std::memory_order_acquire)
+                        || !running_.load(std::memory_order_acquire);
+                });
+        }
 
-        // ---------------------------------------------------------------------
-        // ASYNC EVENT TRIPWIRE — poll on the main Raft tick thread.
-        // consumeStorageDegradedFlag() is a lock-free atomic exchange.
-        // ---------------------------------------------------------------------
+        if (!running_) break;
+        commit_pending_.store(false, std::memory_order_release);
+
+        // Poll the async event tripwire (lock-free).
         if (store_.consumeStorageDegradedFlag()) {
             checkStorageDegraded();
         }
 
-        std::unique_lock<std::mutex> lock(mtx_);
-        auto now = std::chrono::steady_clock::now();
-
-        if (state_ == NodeState::LEADER) {
-            sendHeartbeats();
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        } else {
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                now - last_heartbeat_time_);
-            if (elapsed > election_timeout_) {
-                startElection();
+        // Tick work: replicate or elect.
+        {
+            std::unique_lock<std::mutex> lock(mtx_);
+            if (state_ == NodeState::LEADER) {
+                sendHeartbeats();
+            } else {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - last_heartbeat_time_);
+                if (elapsed > election_timeout_) {
+                    startElection();
+                }
             }
         }
     }
@@ -156,19 +193,10 @@ void RaftNode::runBackgroundLoop() {
 // =============================================================================
 // ASYNC EVENT TRIPWIRE — main-thread step-down handler.
 // =============================================================================
-// Invoked exclusively from runBackgroundLoop(). Acquires mtx_ and performs
-// the FOLLOWER transition under the same lock that guards every other Raft
-// event. Followers/candidates simply ignore the event (the flag was already
-// consumed, so no action is needed).
-// =============================================================================
 void RaftNode::checkStorageDegraded() {
     std::unique_lock<std::mutex> lock(mtx_);
 
-    // Only a leader can step down. Non-leaders have nothing to do.
     if (state_ != NodeState::LEADER) return;
-
-    // Defensive guard: the Store only signals when the tripwire is enabled,
-    // but we re-check here so behavior is deterministic under ablation.
     if (!config::GlobalConfig::instance().enable_tripwire) return;
 
     std::cout << "\n[RaftNode " << node_id_
@@ -182,17 +210,7 @@ void RaftNode::checkStorageDegraded() {
     current_leader_ = -1;
     persistMetadata();
 
-    // Reset election timer so this node does not immediately campaign against
-    // the still-healthy peers and trigger an unnecessary election storm.
     last_heartbeat_time_ = std::chrono::steady_clock::now();
-
-    // NOTE on client connections:
-    // This Raft node does not own client sockets — the network::Server owns
-    // them. Once state_ != LEADER, every subsequent propose() from a client
-    // returns false, and any in-flight client RPC observes that on its next
-    // propose(). The application layer translates this into an error/redirect
-    // to the newly elected leader. No socket ownership is transferred here,
-    // which is precisely why the refactor is safe: we mutate only Raft state.
 }
 
 // =============================================================================
@@ -229,6 +247,8 @@ void RaftNode::startElection() {
         std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term "
                   << current_term_ << "\n" << std::flush;
         return;
+            commit_pending_.store(true, std::memory_order_release);
+            tick_cv_.notify_one();
     }
 
     mtx_.unlock();
@@ -246,8 +266,6 @@ void RaftNode::startElection() {
         args.last_log_term = last_log_term;
 
         std::string payload = common::Protocol::serializeRequestVote(args);
-
-        // --- PHASE 2: Record RequestVote RPC for telemetry ---
         recordRequestVoteRPC();
 
         auto reply_str = client.sendRpc(peer.ip, peer.port, payload, 50);
@@ -295,6 +313,8 @@ void RaftNode::startElection() {
         leader_lease_end_ = std::chrono::steady_clock::now() + election_timeout_;
         std::cout << "[RaftNode " << node_id_ << "] Won election! Promoted to LEADER for Term "
                   << current_term_ << "\n" << std::flush;
+            commit_pending_.store(true, std::memory_order_release);
+            tick_cv_.notify_one();
     }
 }
 
@@ -317,7 +337,7 @@ void RaftNode::sendHeartbeats() {
     std::vector<RPCContext> rpcs;
 
     for (const auto& peer : current_peers) {
-        if (peer.id >= next_index_.size()) continue;
+        if (peer.id >= (int)next_index_.size()) continue;
 
         uint64_t next_idx = next_index_[peer.id];
         RPCContext ctx;
@@ -353,7 +373,6 @@ void RaftNode::sendHeartbeats() {
             args.prev_log_term = log_.getTerm(prev_idx);
             args.leader_commit = commit_index_;
 
-            // Cap batch size to 200 entries to prevent Death Spiral.
             uint64_t end_idx = std::min(last_idx, next_idx + 50 - 1);
             for (uint64_t i = next_idx; i <= end_idx; i++) {
                 auto entry = log_.getEntry(i);
@@ -386,10 +405,8 @@ void RaftNode::sendHeartbeats() {
         const auto& peer = current_peers[i];
         const auto& ctx = rpcs[i];
 
-        // Increased normal RPC timeout to 1 full second (1000ms).
         int timeout = ctx.is_snapshot ? 2000 : 1000;
 
-        // --- PHASE 2: Record AppendEntries RPC for telemetry ---
         if (!ctx.is_snapshot) {
             recordAppendEntriesRPC();
         }
@@ -443,23 +460,107 @@ void RaftNode::sendHeartbeats() {
 
     for (const auto& r : valid_replies) {
         if (r.success) {
-            next_index_[r.peer_id] = r.target_next;
-            match_index_[r.peer_id] = r.target_match;
+            if (r.peer_id < (int)next_index_.size()) {
+                next_index_[r.peer_id] = r.target_next;
+            }
+            if (r.peer_id < (int)match_index_.size()) {
+                match_index_[r.peer_id] = r.target_match;
+            }
             acks++;
         } else {
-            if (next_index_[r.peer_id] > 1) {
-                next_index_[r.peer_id]--;
+            // -----------------------------------------------------------------
+            // Log-matching backoff.
+            // -----------------------------------------------------------------
+            // Previously next_index was decremented by 1 per failure. With a
+            // 4600-entry divergence after a leader crash, that required ~4600
+            // round trips to converge — well past the chaos test's window.
+            // Halving converges in O(log N) probes. The follower's lastIndex
+            // is not part of AppendEntriesReply yet, so binary-search is the
+            // best available without a protocol change.
+            // -----------------------------------------------------------------
+            if (r.peer_id < (int)next_index_.size() && next_index_[r.peer_id] > 1) {
+                next_index_[r.peer_id] = std::max<uint64_t>(1, next_index_[r.peer_id] / 2);
             }
         }
     }
 
-    if (acks > (current_peers.size() + 1) / 2) {
+    // =========================================================================
+    // FIX C2 — Majority-committed index computation.
+    // -------------------------------------------------------------------------
+    // The previous code did:
+    //     if (last_idx > commit_index_) { commit_index_ = last_idx; ... }
+    // which commits whatever the LEADER has, regardless of how far followers
+    // actually replicated. Under SIGKILL chaos, this loses entries that
+    // received a majority ack in a batch but were never fully replicated
+    // before the leader died.
+    //
+    // Correct Raft: commit up to the highest index that is present on a
+    // majority of nodes. Build a sorted-descending list of match_index_
+    // values (plus the leader's own last index), and take the (N-1)/2-th
+    // element — the median. For a 1-node cluster this is trivially the
+    // leader's own index; for 3 nodes it is the 2nd largest; for 5 nodes
+    // the 3rd largest.
+    // =========================================================================
+        if (acks > (int)(current_peers.size() + 1) / 2) {
         leader_lease_end_ = lease_start_time + election_timeout_;
-        if (last_idx > commit_index_) {
-            commit_index_ = last_idx;
+
+        std::vector<uint64_t> replica_idx;
+        replica_idx.reserve(current_peers.size() + 1);
+        replica_idx.push_back(last_idx);
+        for (const auto& peer : current_peers) {
+            if (peer.id < (int)match_index_.size()) {
+                replica_idx.push_back(match_index_[peer.id]);
+            } else {
+                replica_idx.push_back(0);
+            }
+        }
+        std::sort(replica_idx.begin(), replica_idx.end(), std::greater<uint64_t>());
+        uint64_t majority_committed = replica_idx[(replica_idx.size() - 1) / 2];
+
+        // Group-commit gate: do not advance commit_index_ past what we have
+        // locally fsynced. This is what makes "OK" durable across crashes.
+        uint64_t local_durable = log_.getDurableIndex();
+        if (local_durable < majority_committed) {
+            // Ask the fsync thread to catch up, but do not block the tick.
+            // The next tick will retry the commit.
+            return;
+        }
+
+        if (majority_committed > commit_index_) {
+            commit_index_ = majority_committed;
             applyLogsToStore();
+            commit_cv_.notify_all();
+            // Persist the new commit index so a restart can replay at least
+            // this far into the state machine.
+            persistMetadata();
         }
     }
+}
+
+// =============================================================================
+// FIX C1 — waitForCommit
+// =============================================================================
+// Block until commit_index_ >= target_index, or until we lose leadership,
+// or until the timeout expires. Called by the client handler in main.cpp
+// so that "OK" from SET/DEL means the entry is durably committed, not
+// merely appended to the leader's log.
+//
+// The mutex is released while sleeping (2 ms poll) so that the Raft tick
+// thread and RPC handlers can make progress. On each wakeup we re-check
+// both commit_index_ and state_.
+// =============================================================================
+bool RaftNode::waitForCommit(uint64_t target_index,
+                             std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lock(mtx_);
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+
+    while (commit_index_ < target_index) {
+        if (state_ != NodeState::LEADER) return false;
+        if (commit_cv_.wait_until(lock, deadline) == std::cv_status::timeout) {
+            return commit_index_ >= target_index;
+        }
+    }
+    return true;
 }
 
 // =============================================================================
@@ -537,6 +638,9 @@ AppendEntriesReply RaftNode::handleAppendEntries(const AppendEntriesArgs& args) 
     if (args.leader_commit > commit_index_) {
         commit_index_ = std::min(args.leader_commit, log_.lastIndex());
         applyLogsToStore();
+        commit_cv_.notify_all();
+        // Persist so a restart replays at least this far.
+        persistMetadata();
     }
 
     reply.term = current_term_;
@@ -644,12 +748,35 @@ void RaftNode::checkAndTriggerSnapshot() {
 // =============================================================================
 bool RaftNode::propose(const std::string& command, uint64_t& out_index) {
     std::unique_lock<std::mutex> lock(mtx_);
-    if (state_ != NodeState::LEADER) {
-        // After an async-event-tripwire step-down, clients observe this as
-        // false and the application layer redirects them to the new leader.
-        return false;
-    }
+    if (state_ != NodeState::LEADER) return false;
+
     out_index = log_.append(current_term_, command);
+
+    // -------------------------------------------------------------------------
+    // Single-node fast path: we are the majority.
+    // Release mtx_ while waiting for the local fsync (group-committed), then
+    // advance commit_index_ inline. The CV-based waitForCommit() is woken by
+    // the notify_all() below.
+    // -------------------------------------------------------------------------
+    if (peers_.empty()) {
+        lock.unlock();
+        log_.waitForDurable(out_index, std::chrono::milliseconds(100));
+        lock.lock();
+        if (state_ != NodeState::LEADER) return false;
+        uint64_t d = log_.getDurableIndex();
+        if (d > commit_index_) {
+            commit_index_ = d;
+            applyLogsToStore();
+            commit_cv_.notify_all();
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-node: kick the tick thread to replicate.
+    // -------------------------------------------------------------------------
+    commit_pending_.store(true, std::memory_order_release);
+    tick_cv_.notify_one();
     return true;
 }
 
@@ -726,7 +853,7 @@ void RaftNode::runTelemetryLoop() {
         uint64_t current_rpc_count = rpc_counter_append_entries_.load()
                                    + rpc_counter_request_vote_.load();
         uint64_t rpc_delta = current_rpc_count - last_rpc_count_;
-        uint64_t rpcs_per_sec = (rpc_delta * 2); // *2 because we sample every 500ms
+        uint64_t rpcs_per_sec = (rpc_delta * 2);
         last_rpc_count_ = current_rpc_count;
 
         std::string state = getStateString();

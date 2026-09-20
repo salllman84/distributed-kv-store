@@ -85,6 +85,14 @@ private:
     std::atomic<bool> running_;
 
     // -------------------------------------------------------------------------
+    // FIX D — Commit-pending wakeup.
+    // -------------------------------------------------------------------------
+
+    std::condition_variable tick_cv_;
+    std::atomic<bool> commit_pending_{false};
+    std::condition_variable commit_cv_;
+
+    // -------------------------------------------------------------------------
     // Election timeout management
     // -------------------------------------------------------------------------
     std::chrono::milliseconds election_timeout_;
@@ -150,6 +158,27 @@ public:
     // Client request entrypoint
     // -------------------------------------------------------------------------
     bool propose(const std::string& command, uint64_t& out_index);
+
+    // =========================================================================
+    // FIX C1 — waitForCommit
+    // -------------------------------------------------------------------------
+    // Block until commit_index_ >= target_index, or until this node loses
+    // leadership, or until the timeout expires.
+    //
+    // Called by the client handler in main.cpp so that a successful "OK"
+    // from SET/DEL means the entry is durably committed (replicated to a
+    // majority and applied to the state machine), not merely appended to
+    // the leader's local log.
+    //
+    // Returns:
+    //   true  — entry is committed and applied
+    //   false — timed out, stepped down, or never became leader
+    //
+    // Thread-safety: releases mtx_ between 2 ms polls so the Raft tick
+    // thread and RPC handlers can continue making progress.
+    // =========================================================================
+    bool waitForCommit(uint64_t target_index,
+                       std::chrono::milliseconds timeout = std::chrono::milliseconds(2000));
 
     // -------------------------------------------------------------------------
     // State getters for testing and monitoring

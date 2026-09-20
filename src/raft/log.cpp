@@ -2,61 +2,102 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstring>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 namespace raft {
 
-RaftLog::RaftLog(int node_id) 
-    : node_id_(node_id), 
-      commit_index_(0), 
+// =============================================================================
+// CONSTRUCTOR / DESTRUCTOR
+// =============================================================================
+RaftLog::RaftLog(int node_id)
+    : node_id_(node_id),
+      commit_index_(0),
       last_applied_(0),
       last_included_index_(0),
       last_included_term_(0) {
-    
+
     filename_ = "node_" + std::to_string(node_id_) + ".wal";
-    entries_.push_back(LogEntry{0, ""}); // Dummy entry
-    load(); // Recover from disk if WAL exists
+    entries_.push_back(LogEntry{0, ""});   // dummy offset entry
+
+    load();                                 // parse existing WAL into entries_
+    openWALForAppend();                     // persistent fd, O_APPEND
+
+    fsync_running_ = true;
+    fsync_thread_ = std::thread(&RaftLog::fsyncLoop, this);
 }
 
+RaftLog::~RaftLog() {
+    if (fsync_running_) {
+        fsync_running_ = false;
+        fsync_cv_.notify_all();
+        if (fsync_thread_.joinable()) fsync_thread_.join();
+    }
+    closeWAL();
+}
+
+// =============================================================================
+// APPEND — fast path, no fsync
+// =============================================================================
 uint64_t RaftLog::append(uint64_t term, const std::string& command) {
+    std::unique_lock<std::mutex> lock(wal_mutex_);
     entries_.push_back(LogEntry{term, command});
-    persist();
-    return lastIndex();
+    uint64_t idx = lastIndex();
+    writeEntryRaw(term, command);
+    unsynced_index_ = idx;
+    fsync_cv_.notify_one();   // wake the fsync thread
+    return idx;
 }
 
-void RaftLog::appendEntries(uint64_t prev_log_index, const std::vector<LogEntry>& new_entries) {
+void RaftLog::appendEntries(uint64_t prev_log_index,
+                            const std::vector<LogEntry>& new_entries) {
+    std::unique_lock<std::mutex> lock(wal_mutex_);
+
+    bool changed = false;
     for (size_t i = 0; i < new_entries.size(); ++i) {
         uint64_t target_index = prev_log_index + 1 + i;
-        
-        // Skip entries that are already part of our snapshot
         if (target_index <= last_included_index_) continue;
 
         uint64_t vec_index = target_index - last_included_index_;
         if (vec_index < entries_.size()) {
             if (entries_[vec_index].term != new_entries[i].term) {
-                truncate(target_index);
+                // Conflict: truncate from here on, then append the new entry.
+                entries_.erase(entries_.begin() + vec_index, entries_.end());
                 entries_.push_back(new_entries[i]);
+                changed = true;
             }
+            // else: matching entry already present. Do NOT push_back again.
         } else {
             entries_.push_back(new_entries[i]);
+            changed = true;
         }
     }
-    persist();
+
+    if (changed) {
+        // Full rewrite: correct and matches the previous behavior for the
+        // follower path. The leader's client-hot path (append()) stays O(1).
+        rewriteWALRaw();
+        durable_index_  = lastIndex();
+        unsynced_index_ = lastIndex();
+    }
 }
 
+// =============================================================================
+// READ PATH
+// =============================================================================
 std::optional<LogEntry> RaftLog::getEntry(uint64_t index) const {
     if (index <= last_included_index_ || index > lastIndex()) {
-        return std::nullopt; // Discarded by snapshot or out of bounds
+        return std::nullopt;
     }
     return entries_[index - last_included_index_];
 }
 
 uint64_t RaftLog::getTerm(uint64_t index) const {
-    if (index == last_included_index_) {
-        return last_included_term_; // Handled by dummy offset entry
-    }
-    if (index < last_included_index_ || index > lastIndex()) {
-        return 0;
-    }
+    if (index == last_included_index_) return last_included_term_;
+    if (index < last_included_index_ || index > lastIndex()) return 0;
     return entries_[index - last_included_index_].term;
 }
 
@@ -65,58 +106,193 @@ uint64_t RaftLog::lastIndex() const {
 }
 
 uint64_t RaftLog::lastTerm() const {
-    if (entries_.size() == 1) { // Only the offset dummy entry exists
-        return last_included_term_;
-    }
+    if (entries_.size() == 1) return last_included_term_;
     return entries_.back().term;
 }
 
 size_t RaftLog::size() const {
-    return lastIndex(); 
+    return (size_t)lastIndex();
 }
 
+// =============================================================================
+// TRUNCATE / COMPACT — rare, full rewrite
+// =============================================================================
 void RaftLog::truncate(uint64_t index) {
-    if (index <= last_included_index_) return; // Cannot truncate compacted logs
+    if (index <= last_included_index_) return;
     uint64_t vec_index = index - last_included_index_;
     if (vec_index < entries_.size()) {
+        std::unique_lock<std::mutex> lock(wal_mutex_);
         entries_.erase(entries_.begin() + vec_index, entries_.end());
-        persist();
+        rewriteWALRaw();
+        durable_index_  = lastIndex();
+        unsynced_index_ = lastIndex();
     }
 }
 
 void RaftLog::compact(uint64_t snapshot_index, uint64_t snapshot_term) {
-    if (snapshot_index <= last_included_index_) return; // Already compacted past this point
+    if (snapshot_index <= last_included_index_) return;
 
     uint64_t vec_index = snapshot_index - last_included_index_;
+    std::unique_lock<std::mutex> lock(wal_mutex_);
+
     std::vector<LogEntry> new_entries;
-    
-    // Create new dummy entry holding the offset state
     new_entries.push_back(LogEntry{snapshot_term, ""});
-
-    // Copy over any logs that occurred *after* the snapshot index
     if (vec_index < entries_.size()) {
-        new_entries.insert(new_entries.end(), entries_.begin() + vec_index + 1, entries_.end());
+        new_entries.insert(new_entries.end(),
+                           entries_.begin() + vec_index + 1,
+                           entries_.end());
     }
-
     entries_ = std::move(new_entries);
     last_included_index_ = snapshot_index;
-    last_included_term_ = snapshot_term;
-    
-    persist();
+    last_included_term_  = snapshot_term;
+
+    rewriteWALRaw();
+    durable_index_  = lastIndex();
+    unsynced_index_ = lastIndex();
 }
 
-void RaftLog::persist() const {
-    std::ofstream outfile(filename_, std::ios::trunc);
-    if (!outfile.is_open()) return;
-
-    // Write metadata header to support loading compacted offsets
-    outfile << "SNAP " << last_included_index_ << " " << last_included_term_ << "\n";
-
-    for (size_t i = 1; i < entries_.size(); ++i) {
-        outfile << entries_[i].term << " " << entries_[i].command.length() << " " << entries_[i].command << "\n";
+// =============================================================================
+// RAW I/O
+// =============================================================================
+void RaftLog::openWALForAppend() {
+    wal_fd_ = ::open(filename_.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (wal_fd_ < 0) {
+        std::cerr << "[RaftLog] open(" << filename_ << ") for append failed: "
+                  << std::strerror(errno) << "\n" << std::flush;
     }
 }
 
+void RaftLog::closeWAL() {
+    if (wal_fd_ >= 0) {
+        ::fsync(wal_fd_);
+        ::close(wal_fd_);
+        wal_fd_ = -1;
+    }
+}
+
+void RaftLog::writeEntryRaw(uint64_t term, const std::string& command) {
+    if (wal_fd_ < 0) return;
+    // Format matches the loader: "<term> <len> <command>\n"
+    char header[64];
+    int n = std::snprintf(header, sizeof(header), "%lu %zu ",
+                          (unsigned long)term, command.size());
+    if (n <= 0) return;
+
+    // Best-effort full write. On a healthy local fd this cannot short-write
+    // for <1KB payloads, but we retry anyway for correctness.
+    auto write_all = [this](const char* buf, size_t len) {
+        size_t off = 0;
+        while (off < len) {
+            ssize_t w = ::write(wal_fd_, buf + off, len - off);
+            if (w <= 0) return;
+            off += (size_t)w;
+        }
+    };
+    write_all(header, (size_t)n);
+    write_all(command.data(), command.size());
+    write_all("\n", 1);
+    // NOTE: no fsync here — the fsync thread batches it.
+}
+
+void RaftLog::rewriteWALRaw() {
+    // Close and reopen with truncate.
+    if (wal_fd_ >= 0) {
+        ::close(wal_fd_);
+        wal_fd_ = -1;
+    }
+    int fd = ::open(filename_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        std::cerr << "[RaftLog] rewrite open(" << filename_
+                  << ") failed: " << std::strerror(errno) << "\n" << std::flush;
+        openWALForAppend();
+        return;
+    }
+
+    auto write_all = [fd](const char* buf, size_t len) {
+        size_t off = 0;
+        while (off < len) {
+            ssize_t w = ::write(fd, buf + off, len - off);
+            if (w <= 0) return;
+            off += (size_t)w;
+        }
+    };
+
+    char header[128];
+    int n = std::snprintf(header, sizeof(header), "SNAP %lu %lu\n",
+                          (unsigned long)last_included_index_,
+                          (unsigned long)last_included_term_);
+    if (n > 0) write_all(header, (size_t)n);
+
+    for (size_t i = 1; i < entries_.size(); ++i) {
+        char hdr[64];
+        int m = std::snprintf(hdr, sizeof(hdr), "%lu %zu ",
+                              (unsigned long)entries_[i].term,
+                              entries_[i].command.size());
+        if (m <= 0) continue;
+        write_all(hdr, (size_t)m);
+        write_all(entries_[i].command.data(), entries_[i].command.size());
+        write_all("\n", 1);
+    }
+
+    ::fsync(fd);
+    ::close(fd);
+    openWALForAppend();
+}
+
+// =============================================================================
+// FSYNC THREAD — group commit
+// =============================================================================
+void RaftLog::fsyncLoop() {
+    while (fsync_running_) {
+        uint64_t target = 0;
+        {
+            std::unique_lock<std::mutex> lock(wal_mutex_);
+            fsync_cv_.wait_for(lock, std::chrono::milliseconds(5), [this]() {
+                return !fsync_running_
+                    || unsynced_index_ > durable_index_;
+            });
+            if (!fsync_running_) break;
+            target = unsynced_index_;
+            if (target <= durable_index_) continue;
+        }
+
+        // fsync outside the lock. All appends that arrived while we were
+        // sleeping are covered by this single syscall — that is the
+        // "group commit" batching.
+        if (wal_fd_ >= 0) {
+            if (::fsync(wal_fd_) != 0) {
+                std::cerr << "[RaftLog] fsync failed: "
+                          << std::strerror(errno) << "\n" << std::flush;
+            }
+        }
+
+        {
+            std::unique_lock<std::mutex> lock(wal_mutex_);
+            if (target > durable_index_) durable_index_ = target;
+        }
+        durable_cv_.notify_all();
+    }
+}
+
+bool RaftLog::waitForDurable(uint64_t index, std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lock(wal_mutex_);
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (durable_index_ < index) {
+        if (durable_cv_.wait_until(lock, deadline) == std::cv_status::timeout) {
+            return durable_index_ >= index;
+        }
+    }
+    return true;
+}
+
+uint64_t RaftLog::getDurableIndex() const {
+    std::unique_lock<std::mutex> lock(wal_mutex_);
+    return durable_index_;
+}
+
+// =============================================================================
+// LOAD — parse existing WAL into memory
+// =============================================================================
 void RaftLog::load() {
     std::ifstream infile(filename_);
     if (!infile.is_open()) return;
@@ -124,18 +300,17 @@ void RaftLog::load() {
     std::string header;
     if (infile >> header) {
         if (header == "SNAP") {
-            // New snapshot-aware format
             infile >> last_included_index_ >> last_included_term_;
             entries_[0].term = last_included_term_;
         } else {
-            // Backward compatibility for old WAL files before compaction existed
+            // Pre-snapshot format: first line is an entry, not a header.
             uint64_t term = std::stoull(header);
             size_t length;
             infile >> length;
-            infile.ignore(); // skip space
+            infile.ignore();
             std::string cmd(length, '\0');
-            infile.read(&cmd[0], length);
-            infile.ignore(); // skip newline
+            infile.read(&cmd[0], (std::streamsize)length);
+            infile.ignore();
             entries_.push_back(LogEntry{term, cmd});
         }
     }
@@ -145,12 +320,17 @@ void RaftLog::load() {
     while (infile >> term >> length) {
         infile.ignore();
         std::string cmd(length, '\0');
-        infile.read(&cmd[0], length);
+        infile.read(&cmd[0], (std::streamsize)length);
         infile.ignore();
         entries_.push_back(LogEntry{term, cmd});
     }
-    std::cout << "[RaftLog Node " << node_id_ << "] Recovered WAL up to index " << lastIndex() 
-              << " (Snapshot index offset: " << last_included_index_ << ").\n" << std::flush;
+
+    durable_index_  = lastIndex();
+    unsynced_index_ = lastIndex();
+
+    std::cout << "[RaftLog Node " << node_id_ << "] Recovered WAL up to index "
+              << lastIndex() << " (Snapshot index offset: "
+              << last_included_index_ << ").\n" << std::flush;
 }
 
 } // namespace raft
