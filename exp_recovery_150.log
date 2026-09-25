@@ -1,0 +1,29 @@
+[exp] latency=150ms  tripwire=on  warmup=2.0s  duration=15.0s  writers=16
+[exp] waiting for initial leader ...
+[exp] leader = node 2  PID=105463
+[exp] warmup: 1717 writes in 2.0s = 858 wps
+[exp] t_inject  → SIGUSR1 to node 2
+[exp] step-down observed; SIGUSR2 → node 2
+[exp] degraded: 3438 writes in 15.0s = 229 wps
+
+[exp] === Event timeline (relative to t_inject) ===
+
+  -2.193s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 1
+  -2.192s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 1
+  -2.191s  [node 2] NEW_LEADER      [RaftNode 2] Won election! Promoted to LEADER for Term 1
+  +2.675s  [node 2] TRIPWIRE_RAFT   [RaftNode 2] [1;31mASYNC EVENT TRIPWIRE: STORAGE OVERLOAD DETECTED![0m
+  +2.675s  [node 2] STEP_DOWN       [RaftNode 2] Gracefully stepping down to FOLLOWER to protect cluster tail latency.
+  +2.913s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 2
+  +3.263s  [node 1] ELECTION_START  [RaftNode 1] Election timeout expired. Starting election for Term 3
+  +4.518s  [node 1] NEW_LEADER      [RaftNode 1] Won election! Promoted to LEADER for Term 3
+  +4.518s  [node 3] NEW_LEADER      [RaftNode 3] Won election! Promoted to LEADER for Term 2
+
+[exp] === Summary ===
+  tripwire_fired       = False
+  election_fired       = True
+  first_election_ms    = 2913
+  leadership_changed   = True
+  new_leader_ms        = 4518
+  warmup_wps           = 858
+  degraded_wps         = 229
+  throughput_ratio     = 0.267

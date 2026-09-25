@@ -214,7 +214,7 @@ def count_leader_transfers(nodes: List[Node]) -> int:
 
 
 def count_tripwire_fires(nodes: List[Node]) -> int:
-    return sum(n.count_log("ASYNC EVENT TRIPWIRE") for n in nodes)
+    return sum(n.count_log("FLUSH-LATENCY TRIPWIRE") for n in nodes)
 
 
 # ---------------------------------------------------------------------------

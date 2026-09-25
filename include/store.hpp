@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <condition_variable>
+#include <chrono>
 #include "config.hpp"
 
 namespace kvstore {
@@ -28,16 +29,6 @@ private:
 
     // =====================================================================
     // Persistent async flush worker.
-    // ---------------------------------------------------------------------
-    // Replaces std::thread(std::move(do_flush)).detach(), which spawned
-    // one OS thread per MemTable flush. At MEMTABLE_LIMIT=50 over a 10k
-    // workload that is 200 thread creations, each costing 50-100 us and
-    // contending with the striped writers on sstables_mutex_.
-    //
-    // The persistent worker also serializes flush execution, which is
-    // strictly more correct: SSTable registration order in sstables_
-    // now matches flush order, so get()'s reverse iteration sees
-    // newest-first without races.
     // =====================================================================
     std::thread                        async_flush_thread_;
     std::mutex                         async_flush_mutex_;
@@ -47,17 +38,6 @@ private:
 
     // =====================================================================
     // Duplicate-flush guard.
-    // ---------------------------------------------------------------------
-    // Under lock striping, 8 concurrent writers can all observe
-    // total_memtable_size_ >= MEMTABLE_LIMIT in the same window and all
-    // call flushMemtableToDisk(). Without this flag, each of them enters
-    // the freeze path, takes all 16 shard mutexes sequentially, and
-    // queues a separate async job — most of which find empty shards.
-    //
-    // The flag makes the threshold crossing atomic: only the writer that
-    // flips false→true proceeds to freeze + dispatch; everyone else
-    // returns immediately. The flag is reset at the end of do_flush
-    // (which runs on the async worker thread in async mode).
     // =====================================================================
     std::atomic<bool> flush_in_progress_{false};
 
@@ -104,7 +84,6 @@ private:
     std::array<Shard, NUM_SHARDS> shards_;
     std::atomic<size_t> total_memtable_size_{0};
 
-    // ABLATION: single global mutex used when lock-striping is disabled.
     mutable std::shared_mutex global_memtable_mutex_;
 
     std::vector<std::string> sstables_;
@@ -115,15 +94,36 @@ private:
 
     // =====================================================================
     // INNOVATION 3: Async Event-Driven Compaction Tripwire
-    // ---------------------------------------------------------------------
-    // The LSM-tree never mutates Raft state. On storage overload, we
-    // publish a single-bit event to this atomic flag. The Raft main tick
-    // thread is the sole consumer and the sole mutator of Raft state.
     // =====================================================================
     std::atomic<bool> storage_degraded_flag_{false};
 
     const size_t MEMTABLE_LIMIT       = 50;
     const size_t COMPACTION_THRESHOLD = 4;
+
+    // =====================================================================
+    // Flush-latency tripwire — the disk-health signal.
+    // ---------------------------------------------------------------------
+    // Tracks an EWMA of actual SSTable flush latency. On healthy hardware
+    // a 50-key flush takes 1-5 ms; on degraded hardware it takes tens to
+    // hundreds of ms. Crossing the threshold (30 ms) fires the tripwire.
+    //
+    // The first sample initializes the EWMA directly (see do_flush below),
+    // so the tripwire reacts to the first slow flush instead of waiting
+    // for the running average to climb.
+    // =====================================================================
+    std::atomic<uint64_t> ewma_flush_latency_us_{0};
+    static constexpr uint64_t FLUSH_LATENCY_THRESHOLD_US = 30000;  // 30 ms
+
+    // Rate-limits the tripwire log line to at most one per second, so a
+    // follower whose disk stays degraded does not flood stdout with the
+    // same message on every flush.
+    //
+    // NOTE: this must be std::optional, not a default-constructed
+    // time_point. Initializing to time_point::min() causes the subtraction
+    // `now - last_tripwire_log_` to overflow int64_t (the gap from
+    // time_point::min() to now is ~292 years in nanoseconds), which wraps
+    // to a negative value and permanently suppresses all log output.
+    std::optional<std::chrono::steady_clock::time_point> last_tripwire_log_;
 
     size_t getShardIndex(const std::string& key) const {
         return std::hash<std::string>{}(key) % NUM_SHARDS;
@@ -133,22 +133,13 @@ private:
     // MemTable flush
     // ---------------------------------------------------------------------
     void flushMemtableToDisk() {
-        // ---------------------------------------------------------------------
-        // Duplicate-flush guard.
-        // ---------------------------------------------------------------------
-        // Only one caller may be inside the freeze path at a time. Under
-        // lock striping, N writers can cross MEMTABLE_LIMIT simultaneously;
-        // without this CAS, all N would proceed and queue N async flushes.
-        // ---------------------------------------------------------------------
         bool expected = false;
         if (!flush_in_progress_.compare_exchange_strong(
                 expected, true, std::memory_order_acq_rel)) {
             return;
         }
 
-        // ---------------------------------------------------------------------
-        // STEP 1: Freeze the MemTable synchronously.
-        // ---------------------------------------------------------------------
+        // ---- STEP 1: Freeze the MemTable synchronously -------------------
         std::map<std::string, std::optional<std::string>> frozen_memtable;
 
         {
@@ -171,9 +162,7 @@ private:
             return;
         }
 
-        // ---------------------------------------------------------------------
-        // STEP 2: Prepare the work unit.
-        // ---------------------------------------------------------------------
+        // ---- STEP 2: Prepare the work unit -------------------------------
         const std::string filename =
             "node_" + std::to_string(node_id_) + "_sstable_"
           + std::to_string(sstable_id_counter_++) + ".sst";
@@ -185,7 +174,18 @@ private:
             captured_node_id = node_id_
         ]() mutable {
 
-            // ---- 2a. Write the SSTable to disk ------------------------------
+            auto t_start = std::chrono::steady_clock::now();
+
+            // ---- Fault injection: simulate slow disk on the flush path ----
+            if (config::GlobalConfig::instance().fault_inject_active.load(
+                    std::memory_order_relaxed)) {
+                int ms = config::GlobalConfig::instance().fault_inject_flush_latency_ms;
+                if (ms > 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+                }
+            }
+
+            // ---- 2a. Write the SSTable to disk ---------------------------
             std::ofstream out(filename, std::ios::binary | std::ios::trunc);
 
             size_t size = frozen.size();
@@ -208,7 +208,7 @@ private:
             }
             out.close();
 
-            // ---- 2b. Register the SSTable under the sstables_ mutex --------
+            // ---- 2b. Register the SSTable under sstables_mutex_ ----------
             size_t current_sstable_count = 0;
             {
                 std::unique_lock<std::shared_mutex> lock(sstables_mutex_);
@@ -220,28 +220,46 @@ private:
                       << "] Flushed Lock-Striped MemTable: " << filename
                       << "\n" << std::flush;
 
-            // ---- 2c. ASYNC EVENT TRIPWIRE — signal only --------------------
-            int offset = config::GlobalConfig::instance().tripwire_offset;
-            if (offset < 0) offset = 0;
+            // ---- 2c. FLUSH-LATENCY TRIPWIRE — signal only ----------------
+            auto t_end = std::chrono::steady_clock::now();
+            uint64_t flush_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                    t_end - t_start).count();
 
-            if (current_sstable_count >=
-                COMPACTION_THRESHOLD + static_cast<size_t>(offset)) {
+            // EWMA with alpha = 0.3. The first sample (old_ewma == 0)
+            // initializes the average directly so the tripwire reacts to the
+            // first slow flush instead of waiting for the running mean to
+            // climb. Without this, trials where the first post-injection
+            // flush happened late could take 5+ seconds to cross threshold.
+            uint64_t old_ewma = ewma_flush_latency_us_.load(std::memory_order_relaxed);
+            uint64_t new_ewma = (old_ewma == 0)
+                ? flush_us
+                : (old_ewma * 7 + flush_us * 3) / 10;
+            ewma_flush_latency_us_.store(new_ewma, std::memory_order_relaxed);
 
-                if (config::GlobalConfig::instance().enable_tripwire) {
+            if (config::GlobalConfig::instance().enable_tripwire &&
+                new_ewma >= FLUSH_LATENCY_THRESHOLD_US) {
+
+                // Rate-limit the log line to once per second per node so a
+                // degraded follower does not flood stdout on every flush.
+                // std::optional handles the "first call" case explicitly,
+                // avoiding the int64_t overflow that time_point::min() causes.
+                auto now = std::chrono::steady_clock::now();
+                bool should_log = !last_tripwire_log_.has_value()
+                    || std::chrono::duration_cast<std::chrono::seconds>(
+                           now - *last_tripwire_log_).count() >= 1;
+                if (should_log) {
                     std::cout << "[LSM-Tree Node " << captured_node_id
-                              << "] ASYNC EVENT TRIPWIRE SIGNALED: "
-                              << current_sstable_count
-                              << " SSTables detected. Posting storage-degraded event.\n"
+                              << "] FLUSH-LATENCY TRIPWIRE: EWMA="
+                              << (new_ewma / 1000) << "ms (last="
+                              << (flush_us / 1000) << "ms). Posting degradation event.\n"
                               << std::flush;
-                    storage_degraded_flag_.store(true, std::memory_order_release);
-                } else {
-                    std::cout << "[LSM-Tree Node " << captured_node_id
-                              << "] WARNING: Disk saturation detected but tripwire DISABLED. "
-                              << "Gray failure likely!\n" << std::flush;
+                    last_tripwire_log_ = now;
                 }
+
+                storage_degraded_flag_.store(true, std::memory_order_release);
             }
 
-            // ---- 2d. Spawn async compaction if above threshold -------------
+            // ---- 2d. Spawn async compaction if above threshold -----------
             bool expected_compaction = false;
             if (current_sstable_count >= COMPACTION_THRESHOLD
                 && is_compacting_.compare_exchange_strong(expected_compaction, true)) {
@@ -251,16 +269,11 @@ private:
                 }).detach();
             }
 
-            // ---- 2e. Release the duplicate-flush guard ---------------------
-            // Reset only after the SSTable is on disk AND registered, so a
-            // subsequent threshold crossing cannot start a new freeze while
-            // this one's file write is still in flight.
+            // ---- 2e. Release the duplicate-flush guard -------------------
             flush_in_progress_.store(false, std::memory_order_release);
         };
 
-        // ---------------------------------------------------------------------
-        // STEP 3: Dispatch — async or sync, based on the config flag.
-        // ---------------------------------------------------------------------
+        // ---- STEP 3: Dispatch — async or sync, based on the config flag --
         if (config::GlobalConfig::instance().enable_async_io) {
             enqueueAsyncFlush(std::move(do_flush));
         } else {

@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\caption{Single-node ablation: tail latency by LSM configuration.}
+\label{tab:ablation}
+\small
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Configuration} & \textbf{p50 (µs)} & \textbf{p99 (µs)} & \textbf{p99.9 (µs)} \\
+\midrule
+single\_mutex\_sync\_io & 8064.7 & 19755.2 & 26871.1 \\
+striped\_sync\_io & 7694.0 & 21054.2 & 29677.3 \\
+single\_mutex\_async\_io & 7830.0 & 17994.01 & 26415.91 \\
+striped\_async\_io & 8078.11 & 18020.51 & 25751.32 \\
+\bottomrule
+\end{tabular}
+\end{table}

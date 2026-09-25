@@ -1,0 +1,19 @@
+[exp] latency=60ms  tripwire=off  warmup=2.0s  duration=10.0s  writers=16
+[exp] waiting for initial leader ...
+[exp] leader = node 2  PID=53668
+[exp] warmup: 1072 writes in 2.0s = 536 wps
+[exp] t_inject  → SIGUSR1 to node 2
+[exp] degraded: 306 writes in 10.0s = 31 wps
+
+[exp] === Event timeline (relative to t_inject) ===
+
+  -2.110s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 1
+  -2.101s  [node 2] NEW_LEADER      [RaftNode 2] Won election! Promoted to LEADER for Term 1
+
+[exp] === Summary ===
+  tripwire_fired       = False
+  election_fired       = False
+  leadership_changed   = False
+  warmup_wps           = 536
+  degraded_wps         = 31
+  throughput_ratio     = 0.057

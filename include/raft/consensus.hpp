@@ -61,6 +61,13 @@ private:
     // Linearizable read lease
     // -------------------------------------------------------------------------
     std::chrono::steady_clock::time_point leader_lease_end_;
+    
+    // ---------------------------------------------------------------------
+    // Sticky step-down: a node that just stepped down due to storage
+    // degradation must not campaign until this deadline passes.
+    // ---------------------------------------------------------------------
+    std::chrono::steady_clock::time_point storage_self_excluded_until_{
+        std::chrono::steady_clock::time_point::min()};
 
     // -------------------------------------------------------------------------
     // Volatile state on leaders (reinitialized after election)

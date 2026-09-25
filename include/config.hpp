@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <atomic>
 
 namespace config {
 
@@ -32,6 +33,19 @@ public:
     bool enable_lock_striping = true;
     bool enable_async_io      = false;
     int  tripwire_offset      = 2;
+
+        // -------------------------------------------------------------------------
+    // Experimental fault injection.
+    // -------------------------------------------------------------------------
+    // When fault_inject_active is true, every MemTable flush sleeps for
+    // fault_inject_flush_latency_ms before writing the SSTable to disk. This
+    // simulates a slow disk without touching the real hardware.
+    //
+    // The flag is toggled at runtime via SIGUSR1, so a cluster can start
+    // healthy and then be degraded on demand.
+    // -------------------------------------------------------------------------
+    int fault_inject_flush_latency_ms = 0;
+    std::atomic<bool> fault_inject_active{false};
 
     // ---- Diagnostics -------------------------------------------------------
     void printConfig() const {

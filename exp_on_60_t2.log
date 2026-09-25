@@ -1,0 +1,34 @@
+[exp] latency=60ms  tripwire=on  warmup=2.0s  duration=10.0s  writers=16
+[exp] waiting for initial leader ...
+[exp] leader = node 1  PID=47737
+[exp] warmup: 1080 writes in 2.0s = 540 wps
+[exp] t_inject  → SIGUSR1 to node 1
+[exp] degraded: 1039 writes in 10.0s = 104 wps
+
+[exp] === Event timeline (relative to t_inject) ===
+
+  -2.075s  [node 1] ELECTION_START  [RaftNode 1] Election timeout expired. Starting election for Term 1
+  -2.072s  [node 1] NEW_LEADER      [RaftNode 1] Won election! Promoted to LEADER for Term 1
+  +2.643s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=31ms (last=60ms). Posting degradation event
+  +2.651s  [node 1] TRIPWIRE_RAFT   [RaftNode 1] [1;31mASYNC EVENT TRIPWIRE: STORAGE OVERLOAD DETECTED![0m
+  +2.651s  [node 1] STEP_DOWN       [RaftNode 1] Gracefully stepping down to FOLLOWER to protect cluster tail latency.
+  +2.854s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 2
+  +2.854s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 2
+  +4.665s  [node 2] NEW_LEADER      [RaftNode 2] Won election! Promoted to LEADER for Term 2
+  +4.991s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=39ms (last=60ms). Posting degradation event
+  +6.102s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=55ms (last=60ms). Posting degradation event
+  +7.170s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=59ms (last=60ms). Posting degradation event
+  +8.212s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=60ms (last=60ms). Posting degradation event
+  +9.362s  [node 1] TRIPWIRE_FIRE   [LSM-Tree Node 1] FLUSH-LATENCY TRIPWIRE: EWMA=60ms (last=60ms). Posting degradation event
+
+[exp] === Summary ===
+  tripwire_fired       = True
+  first_tripwire_ms    = 2643
+  election_fired       = True
+  first_election_ms    = 2854
+  leadership_changed   = True
+  new_leader_ms        = 4665
+  tripwire_lead_ms     = +210
+  warmup_wps           = 540
+  degraded_wps         = 104
+  throughput_ratio     = 0.192

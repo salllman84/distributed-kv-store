@@ -29,6 +29,21 @@ void handle_signal(int signum) {
     std::exit(0);
 }
 
+// SIGUSR1 toggles the storage fault injector. Safe to call from a signal
+// context: it only stores to an atomic. Not print-safe.
+void handle_sigusr1(int) {
+    config::GlobalConfig::instance().fault_inject_active.store(
+        true, std::memory_order_relaxed);
+}
+
+// SIGUSR2 clears the fault injector. Used by exp_sweep.py after the tripwire
+// step-down to simulate the old leader's disk recovering while it is now a
+// follower. Demonstrates that the new leader can resume at full throughput.
+void handle_sigusr2(int) {
+    config::GlobalConfig::instance().fault_inject_active.store(
+        false, std::memory_order_relaxed);
+}
+
 // ---------------------------------------------------------------------------
 // Flag parsing helpers
 // ---------------------------------------------------------------------------
@@ -74,6 +89,11 @@ int main(int argc, char* argv[]) {
         // --tripwire_offset=N
         } else if (arg.rfind("--tripwire_offset=", 0) == 0) {
             cfg.tripwire_offset = std::stoi(strip_prefix(arg, "--tripwire_offset="));
+
+            // --fault_inject_flush_latency_ms=N
+        } else if (arg.rfind("--fault_inject_flush_latency_ms=", 0) == 0) {
+            cfg.fault_inject_flush_latency_ms =
+                std::stoi(strip_prefix(arg, "--fault_inject_flush_latency_ms="));
 
         // --cluster_size=N
         } else if (arg.rfind("--cluster_size=", 0) == 0) {
@@ -128,6 +148,8 @@ int main(int argc, char* argv[]) {
     g_raft_node = &raft_node;
     std::signal(SIGINT,  handle_signal);
     std::signal(SIGTERM, handle_signal);
+    std::signal(SIGUSR1, handle_sigusr1);
+    std::signal(SIGUSR2, handle_sigusr2);
 
     raft_node.start();
 

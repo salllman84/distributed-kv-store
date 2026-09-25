@@ -1,0 +1,38 @@
+[exp] latency=100ms  tripwire=on  warmup=2.0s  duration=10.0s  writers=16
+[exp] waiting for initial leader ...
+[exp] leader = node 2  PID=55446
+[exp] warmup: 919 writes in 2.0s = 460 wps
+[exp] t_inject  → SIGUSR1 to node 2
+[exp] degraded: 1161 writes in 10.0s = 116 wps
+
+[exp] === Event timeline (relative to t_inject) ===
+
+  -2.407s  [node 1] ELECTION_START  [RaftNode 1] Election timeout expired. Starting election for Term 1
+  -2.405s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 1
+  -2.401s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 1
+  -2.198s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 2
+  -2.195s  [node 2] NEW_LEADER      [RaftNode 2] Won election! Promoted to LEADER for Term 2
+  +1.709s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=30ms (last=100ms). Posting degradation even
+  +1.722s  [node 2] TRIPWIRE_RAFT   [RaftNode 2] [1;31mASYNC EVENT TRIPWIRE: STORAGE OVERLOAD DETECTED![0m
+  +1.722s  [node 2] STEP_DOWN       [RaftNode 2] Gracefully stepping down to FOLLOWER to protect cluster tail latency.
+  +1.863s  [node 1] ELECTION_START  [RaftNode 1] Election timeout expired. Starting election for Term 3
+  +1.913s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 3
+  +3.617s  [node 1] NEW_LEADER      [RaftNode 1] Won election! Promoted to LEADER for Term 3
+  +3.986s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=51ms (last=100ms). Posting degradation even
+  +5.247s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=92ms (last=100ms). Posting degradation even
+  +6.322s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=98ms (last=100ms). Posting degradation even
+  +7.440s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=100ms (last=100ms). Posting degradation eve
+  +8.614s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=100ms (last=100ms). Posting degradation eve
+  +9.923s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=100ms (last=100ms). Posting degradation eve
+
+[exp] === Summary ===
+  tripwire_fired       = True
+  first_tripwire_ms    = 1709
+  election_fired       = True
+  first_election_ms    = 1863
+  leadership_changed   = True
+  new_leader_ms        = 3617
+  tripwire_lead_ms     = +153
+  warmup_wps           = 460
+  degraded_wps         = 116
+  throughput_ratio     = 0.253

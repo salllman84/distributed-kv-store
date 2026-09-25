@@ -211,12 +211,28 @@ void RaftNode::checkStorageDegraded() {
     persistMetadata();
 
     last_heartbeat_time_ = std::chrono::steady_clock::now();
+    // Sticky step-down: do not campaign for 5 seconds. This gives a
+    // healthy peer time to become leader and serve traffic. Without it,
+    // the degraded node wins its own election within one timeout and
+    // resumes leading with the same slow disk.
+    storage_self_excluded_until_ =
+        std::chrono::steady_clock::now() + std::chrono::seconds(5);
 }
 
 // =============================================================================
 // ELECTION
 // =============================================================================
 void RaftNode::startElection() {
+
+    // Sticky step-down check.
+    if (std::chrono::steady_clock::now() < storage_self_excluded_until_) {
+        // Reset election timer and return without campaigning.
+        last_heartbeat_time_ = std::chrono::steady_clock::now();
+        return;
+    }
+
+
+
     state_ = NodeState::CANDIDATE;
     current_term_++;
     voted_for_ = node_id_;
@@ -388,7 +404,52 @@ void RaftNode::sendHeartbeats() {
 
     mtx_.unlock();
 
-    int acks = 1; // Self
+    // =========================================================================
+    // FIX: Parallel RPC fan-out.
+    // -------------------------------------------------------------------------
+    // The previous serial loop blocked on the slowest peer. After a tripwire
+    // step-down, the old leader's fsync is still degraded; its RPC took
+    // 100-150 ms, and every healthy peer's RPC waited behind it. Quorum was
+    // therefore delayed by the degraded peer's latency, capping the new
+    // leader's throughput at ~0.5 of warmup.
+    //
+    // Each peer now gets its own thread and its own network::Client. RPCs
+    // to healthy peers return immediately regardless of what the degraded
+    // peer is doing. The reply collection is serial and ordered, so the
+    // commit logic below is byte-identical to before.
+    //
+    // Cost: one thread + one socket per peer per tick. At 20 ticks/sec on a
+    // 3-node cluster, that is 40 threads/sec — negligible next to the RPC
+    // latency itself. For large clusters, replace with a persistent thread
+    // pool; for a 3-5 node cluster, thread-per-peer is fine.
+    // =========================================================================
+    struct PeerReply {
+        std::optional<std::string> data;
+    };
+    std::vector<PeerReply> replies(current_peers.size());
+    std::vector<std::thread> hb_threads;
+    hb_threads.reserve(current_peers.size());
+
+    for (size_t i = 0; i < current_peers.size(); ++i) {
+        const PeerInfo& peer = current_peers[i];
+        const RPCContext& ctx = rpcs[i];
+        int timeout = ctx.is_snapshot ? 2000 : 1000;
+
+        if (!ctx.is_snapshot) {
+            recordAppendEntriesRPC();
+        }
+
+        hb_threads.emplace_back([&, i, timeout]() {
+            network::Client c;
+            replies[i].data = c.sendRpc(peer.ip, peer.port, ctx.payload_str, timeout);
+        });
+    }
+    for (auto& t : hb_threads) {
+        t.join();
+    }
+
+    // ---- Serial reply processing (unchanged semantics) --------------------
+    int acks = 1;
     bool step_down = false;
     uint64_t new_term = 0;
 
@@ -400,45 +461,36 @@ void RaftNode::sendHeartbeats() {
     };
     std::vector<ReplyInfo> valid_replies;
 
-    network::Client client;
     for (size_t i = 0; i < current_peers.size(); ++i) {
-        const auto& peer = current_peers[i];
-        const auto& ctx = rpcs[i];
+        const PeerInfo& peer = current_peers[i];
+        const RPCContext& ctx = rpcs[i];
 
-        int timeout = ctx.is_snapshot ? 2000 : 1000;
+        if (!replies[i].data.has_value()) continue;
 
-        if (!ctx.is_snapshot) {
-            recordAppendEntriesRPC();
-        }
+        std::istringstream iss(replies[i].data.value());
+        std::string type;
+        iss >> type;
 
-        auto reply_str = client.sendRpc(peer.ip, peer.port, ctx.payload_str, timeout);
-
-        if (reply_str.has_value()) {
-            std::istringstream iss(reply_str.value());
-            std::string type;
-            iss >> type;
-
-            if (type == "SNAPSHOT_REPLY") {
-                uint64_t reply_term;
-                iss >> reply_term;
-                if (reply_term > saved_term) {
-                    step_down = true;
-                    new_term = reply_term;
-                } else {
-                    valid_replies.push_back({peer.id, true, ctx.target_next_idx, ctx.target_match_idx});
-                }
+        if (type == "SNAPSHOT_REPLY") {
+            uint64_t reply_term;
+            iss >> reply_term;
+            if (reply_term > saved_term) {
+                step_down = true;
+                new_term = reply_term;
+            } else {
+                valid_replies.push_back({peer.id, true, ctx.target_next_idx, ctx.target_match_idx});
             }
-            else if (type == "APPEND_REPLY") {
-                uint64_t reply_term;
-                bool success;
-                iss >> reply_term >> success;
+        }
+        else if (type == "APPEND_REPLY") {
+            uint64_t reply_term;
+            bool success;
+            iss >> reply_term >> success;
 
-                if (reply_term > saved_term) {
-                    step_down = true;
-                    new_term = reply_term;
-                } else {
-                    valid_replies.push_back({peer.id, success, ctx.target_next_idx, ctx.target_match_idx});
-                }
+            if (reply_term > saved_term) {
+                step_down = true;
+                new_term = reply_term;
+            } else {
+                valid_replies.push_back({peer.id, success, ctx.target_next_idx, ctx.target_match_idx});
             }
         }
     }
@@ -468,40 +520,13 @@ void RaftNode::sendHeartbeats() {
             }
             acks++;
         } else {
-            // -----------------------------------------------------------------
-            // Log-matching backoff.
-            // -----------------------------------------------------------------
-            // Previously next_index was decremented by 1 per failure. With a
-            // 4600-entry divergence after a leader crash, that required ~4600
-            // round trips to converge — well past the chaos test's window.
-            // Halving converges in O(log N) probes. The follower's lastIndex
-            // is not part of AppendEntriesReply yet, so binary-search is the
-            // best available without a protocol change.
-            // -----------------------------------------------------------------
             if (r.peer_id < (int)next_index_.size() && next_index_[r.peer_id] > 1) {
                 next_index_[r.peer_id] = std::max<uint64_t>(1, next_index_[r.peer_id] / 2);
             }
         }
     }
 
-    // =========================================================================
-    // FIX C2 — Majority-committed index computation.
-    // -------------------------------------------------------------------------
-    // The previous code did:
-    //     if (last_idx > commit_index_) { commit_index_ = last_idx; ... }
-    // which commits whatever the LEADER has, regardless of how far followers
-    // actually replicated. Under SIGKILL chaos, this loses entries that
-    // received a majority ack in a batch but were never fully replicated
-    // before the leader died.
-    //
-    // Correct Raft: commit up to the highest index that is present on a
-    // majority of nodes. Build a sorted-descending list of match_index_
-    // values (plus the leader's own last index), and take the (N-1)/2-th
-    // element — the median. For a 1-node cluster this is trivially the
-    // leader's own index; for 3 nodes it is the 2nd largest; for 5 nodes
-    // the 3rd largest.
-    // =========================================================================
-        if (acks > (int)(current_peers.size() + 1) / 2) {
+    if (acks > (int)(current_peers.size() + 1) / 2) {
         leader_lease_end_ = lease_start_time + election_timeout_;
 
         std::vector<uint64_t> replica_idx;
@@ -517,12 +542,8 @@ void RaftNode::sendHeartbeats() {
         std::sort(replica_idx.begin(), replica_idx.end(), std::greater<uint64_t>());
         uint64_t majority_committed = replica_idx[(replica_idx.size() - 1) / 2];
 
-        // Group-commit gate: do not advance commit_index_ past what we have
-        // locally fsynced. This is what makes "OK" durable across crashes.
         uint64_t local_durable = log_.getDurableIndex();
         if (local_durable < majority_committed) {
-            // Ask the fsync thread to catch up, but do not block the tick.
-            // The next tick will retry the commit.
             return;
         }
 
@@ -530,8 +551,6 @@ void RaftNode::sendHeartbeats() {
             commit_index_ = majority_committed;
             applyLogsToStore();
             commit_cv_.notify_all();
-            // Persist the new commit index so a restart can replay at least
-            // this far into the state machine.
             persistMetadata();
         }
     }

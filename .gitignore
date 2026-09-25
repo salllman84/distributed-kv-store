@@ -1,5 +1,8 @@
 # Build directory
 build/
+*.o
+*.a
+*.so
 
 # Database files
 *.sst
@@ -8,11 +11,36 @@ build/
 *.snap
 data/
 
-# Logs and AI output
+# Telemetry logs only (from RaftNode::runTelemetryLoop)
 logs/
-*.log
+
+# AI assistant files
 .claude/
 
-# Temporary benchmark outputs
-*.csv
-*.png
+# LaTeX build artifacts
+*.aux
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+
+# pdflatex run log (the raw experiment logs are NOT ignored
+# — see exp_*.log which stays tracked for reproducibility)
+/paper.log
+
+# Python cache
+__pycache__/
+*.pyc
+# Old experiment iterations (kept on disk, not tracked)
+ablation_v*.log
+ablation_trial*.log
+chaos_debug.log
+run_*.log
+baseline_latency.csv
+baseline_results/
+
+# Figures from previous paper version (superseded by figures/)
+compaction_latency_graph.png
+gray_failure_rpc_spike.png
+optimized_resilient_cluster.png

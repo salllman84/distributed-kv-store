@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "raft/log.hpp"
 #include <iostream>
 #include <fstream>
@@ -254,6 +255,19 @@ void RaftLog::fsyncLoop() {
             if (!fsync_running_) break;
             target = unsynced_index_;
             if (target <= durable_index_) continue;
+        }
+
+        // ---- Fault injection: simulate slow disk on the WAL fsync path ----
+        // This is the fault that matters for the paper's claim: if fsync is
+        // slow, waitForDurable() blocks, the Raft tick thread blocks on
+        // applyLogsToStore(), and heartbeats get delayed. That is the
+        // mechanism by which storage degradation threatens consensus.
+        if (config::GlobalConfig::instance().fault_inject_active.load(
+                std::memory_order_relaxed)) {
+            int ms = config::GlobalConfig::instance().fault_inject_flush_latency_ms;
+            if (ms > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+            }
         }
 
         // fsync outside the lock. All appends that arrived while we were

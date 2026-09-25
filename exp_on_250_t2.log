@@ -1,0 +1,35 @@
+[exp] latency=250ms  tripwire=on  warmup=2.0s  duration=10.0s  writers=16
+[exp] waiting for initial leader ...
+[exp] leader = node 2  PID=81978
+[exp] warmup: 1137 writes in 2.0s = 568 wps
+[exp] t_inject  → SIGUSR1 to node 2
+[exp] degraded: 1515 writes in 10.0s = 152 wps
+
+[exp] === Event timeline (relative to t_inject) ===
+
+  -2.118s  [node 2] ELECTION_START  [RaftNode 2] Election timeout expired. Starting election for Term 1
+  -2.110s  [node 2] NEW_LEADER      [RaftNode 2] Won election! Promoted to LEADER for Term 1
+  +1.895s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=75ms (last=250ms). Posting degradation even
+  +1.924s  [node 2] TRIPWIRE_RAFT   [RaftNode 2] [1;31mASYNC EVENT TRIPWIRE: STORAGE OVERLOAD DETECTED![0m
+  +1.924s  [node 2] STEP_DOWN       [RaftNode 2] Gracefully stepping down to FOLLOWER to protect cluster tail latency.
+  +2.138s  [node 1] ELECTION_START  [RaftNode 1] Election timeout expired. Starting election for Term 2
+  +2.141s  [node 3] ELECTION_START  [RaftNode 3] Election timeout expired. Starting election for Term 2
+  +3.652s  [node 1] NEW_LEADER      [RaftNode 1] Won election! Promoted to LEADER for Term 2
+  +4.075s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=127ms (last=250ms). Posting degradation eve
+  +5.091s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=220ms (last=250ms). Posting degradation eve
+  +6.107s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=243ms (last=250ms). Posting degradation eve
+  +7.193s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=248ms (last=250ms). Posting degradation eve
+  +8.432s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=249ms (last=250ms). Posting degradation eve
+  +9.454s  [node 2] TRIPWIRE_FIRE   [LSM-Tree Node 2] FLUSH-LATENCY TRIPWIRE: EWMA=250ms (last=250ms). Posting degradation eve
+
+[exp] === Summary ===
+  tripwire_fired       = True
+  first_tripwire_ms    = 1895
+  election_fired       = True
+  first_election_ms    = 2138
+  leadership_changed   = True
+  new_leader_ms        = 3652
+  tripwire_lead_ms     = +242
+  warmup_wps           = 568
+  degraded_wps         = 152
+  throughput_ratio     = 0.266
