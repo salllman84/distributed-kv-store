@@ -8,7 +8,7 @@
 
 \begin{document}
 
-\title{Compaction-Aware Consensus: Storage-Health Signaling for Proactive Raft Leader Handoff}
+\title{Storage-Triggered Leader Step-Down\\ in a Raft-Based Key-Value Store}
 
 \author{\IEEEauthorblockN{Salman Khan}
 \IEEEauthorblockA{\textit{Department of Computer Science} \\
@@ -19,81 +19,78 @@ isalllman.84@gmail.com}}
 \maketitle
 
 \begin{abstract}
-Slow local storage can stall a Raft leader long enough to miss heartbeats,
-triggering unnecessary elections and a cascading loss of throughput---a
-class of Gray Failure that production systems such as etcd and TiKV
-document operationally but do not proactively mitigate. We present
-Compaction-Aware Consensus, an architecture that couples an
-LSM-tree storage engine to a Raft state machine through a single atomic
-storage-health signal. When the moving average of SSTable flush latency
-crosses a threshold, the storage engine publishes a one-bit degradation
-event. The Raft tick thread consumes that event on its next iteration and
-executes a clean leader step-down under its own mutex, preserving
-consensus invariants. We evaluate the mechanism on a 3-node cluster under
-injected fsync latency. At 100--500\,ms of injected latency, the
-tripwire preserves 5.7$\times$ to 152$\times$ the throughput of an
-otherwise identical cluster without the tripwire, and fires 118--267\,ms
-before Raft's natural election timeout in every trial in which it fires.
-A separate SIGKILL experiment confirms zero loss of acknowledged writes
-across four independent mid-compaction fault injections.
+Local storage degradation can delay a Raft leader sufficiently to miss
+heartbeats and lose leadership, a phenomenon that etcd and TiKV document
+operationally. We present a mechanism that couples an LSM-tree storage
+engine to a Raft state machine through a single atomic storage-health
+signal. When an exponentially weighted moving average of SSTable flush
+latency crosses a threshold, the storage engine publishes a one-bit
+degradation event. The Raft tick thread consumes that event on its next
+iteration and executes a leader step-down under the same mutex that
+guards every other Raft transition. We evaluate the mechanism on a
+3-node localhost cluster under injected fsync latency. Under 100--500\,ms
+of injected latency, the tripwire preserves 15--40\% of warmup
+throughput for the duration of the fault, while an otherwise identical
+cluster without the tripwire drops to 0.1--5\%. The tripwire fires
+118--267\,ms before Raft's natural election timeout in every trial where
+it fires; at 500\,ms it fires in two of three trials. A separate SIGKILL
+experiment confirms zero loss of acknowledged writes across four
+independent mid-compaction fault injections.
 \end{abstract}
 
 \begin{IEEEkeywords}
-LSM-Tree, Raft Consensus, Distributed Systems, Gray Failure, Tail Latency, Storage Health, C++
+LSM-Tree, Raft Consensus, Distributed Systems, Storage Health, Fault Tolerance, C++
 \end{IEEEkeywords}
 
 \section{Introduction}
 
 Distributed consensus protocols assume that a leader whose process is
-alive can service its peers within the election timeout. In practice,
-this assumption fails when the leader's local storage degrades. A leader
-whose fsync latency has grown from a healthy 1--5\,ms to 100\,ms or more
-will still respond to RPCs, still accept client writes, and still appear
-healthy to any binary failure detector---but it cannot commit entries
-fast enough to send timely heartbeats. Followers interpret the silence
-as failure and start elections. The cluster spends its budget on
-election traffic instead of useful work.
+alive can service its peers within the election timeout. This assumption
+fails when the leader's local storage degrades. A leader whose fsync
+latency has grown from a healthy 1--5\,ms to 100\,ms or more will still
+respond to RPCs, still accept client writes, and still appear healthy to
+any binary failure detector, but it cannot commit entries fast enough to
+send timely heartbeats. Followers interpret the silence as failure and
+start elections. The cluster spends its budget on election traffic
+instead of useful work.
 
-This is a Gray Failure~\cite{gray_failures}: the component is degraded,
-not crashed. Production systems are aware of the phenomenon. etcd's
-operational documentation warns explicitly that slow disk I/O can cause
-missed heartbeats and temporary loss of leadership~\cite{etcd}. TiKV's
-Raftstore throttles client writes when RocksDB compaction pressure
-builds, precisely to prevent RocksDB's stalls from destabilizing the
-Raft layer~\cite{tikv}. Both are reactive: the system slows down, then
-tries to protect itself.
+Production systems are aware of this path. etcd's operational
+documentation warns explicitly that slow disk I/O can cause missed
+heartbeats and temporary loss of leadership, and recommends monitoring
+WAL fsync latency~\cite{etcd}. TiKV throttles client writes when
+RocksDB compaction pressure builds, precisely to prevent RocksDB's
+stalls from destabilizing the Raftstore~\cite{tikv}. CockroachDB
+applies node-level admission control to prevent local resource
+overload from starving the liveness path~\cite{cockroachdb}. These are
+protective: they slow the system down before degradation becomes a
+consensus problem.
 
-We ask a different question. If the storage engine already knows its own
-health, and if the consensus layer already knows how to hand off
-leadership safely, why not let the storage layer tell the consensus
-layer that a handoff is needed \emph{before} the failure manifests as a
-timeout?
-
-This paper presents Compaction-Aware Consensus, a mechanism that does
-exactly that. The storage engine monitors its own flush latency. When the
-signal crosses a threshold, it publishes a single-bit event. The Raft
-tick thread polls that event at the top of every tick. If set, it
-executes a clean step-down under the same mutex that guards every other
-Raft transition, so the step-down is serialized with
-\texttt{AppendEntries}, \texttt{RequestVote}, and client proposals.
+We ask a narrower question. Given that the storage engine knows its own
+health, and that Raft leadership transfer is a standard protocol
+extension~\cite{raft_dissertation,hashicorp_raft}, can the storage
+layer signal the consensus layer to step down \emph{before} degradation
+manifests as an election timeout? We do not propose a new consensus
+mechanism. We present an implementation pattern for integrating a
+storage-health signal into a Raft event loop, and we measure the
+conditions under which it helps.
 
 Our contributions are:
 
 \begin{enumerate}
-    \item A \textbf{storage-health signal} based on the moving average of
-    SSTable flush latency, which directly measures the disk slowdown the
-    mechanism must detect. We show empirically that the more obvious
-    signal---SSTable count---does not work, because it reflects workload
-    rather than disk health and fires continuously under steady load.
-    \item A \textbf{serialized event boundary} between storage and
-    consensus that preserves Raft's state-transition invariants. Rather
-    than invoking a callback from a background thread (which would race
-    with the Raft event loop), the storage engine publishes an atomic
-    flag and the Raft tick thread consumes it on the next iteration.
-    \item An \textbf{empirical evaluation} demonstrating that the
-    mechanism preserves 5.7$\times$ to 152$\times$ of baseline throughput
-    under injected fsync latency, and that it fires consistently
-    118--267\,ms before Raft's election timeout.
+    \item A \textbf{storage-health signal} based on an exponentially
+    weighted moving average of SSTable flush latency, evaluated as a
+    proxy for local storage-path delay. We show empirically that the
+    more obvious signal---SSTable count---reflects workload rather than
+    disk health and produces unacceptable leader churn on our prototype.
+    \item A \textbf{serialized event boundary} that confines all Raft
+    state mutation to the Raft event-loop thread. Rather than invoking
+    a callback from a storage thread, the storage engine publishes an
+    atomic flag and the Raft tick thread consumes it on its next
+    iteration.
+    \item An \textbf{empirical evaluation} on a 3-node localhost cluster
+    under injected fsync latency of 0--500\,ms, showing the conditions
+    under which the tripwire helps, the conditions under which it does
+    not fire, and its effect on absolute throughput.
     \item A \textbf{durability study} confirming zero loss of
     acknowledged writes across four independent SIGKILL fault injections
     of the leader mid-compaction.
@@ -110,8 +107,8 @@ A write hashes its key to a shard, takes that shard's lock, and inserts.
 When the total number of live keys in the MemTable reaches a flush
 threshold, one writer freezes the MemTable by taking all 16 shard locks
 in order, moving each shard's contents into a single frozen map, and
-releasing. The frozen map is then handed to a persistent background
-worker that writes it to an SSTable and registers the file.
+releasing. The frozen map is handed to a persistent background worker
+that writes it to an SSTable and registers the file.
 
 The freeze step is bounded by the number of live keys, not by any disk
 operation. Reads and writes continue after the freeze, into a fresh
@@ -119,21 +116,21 @@ MemTable, while the background worker writes the previous one.
 
 \subsection{Storage-Health Signal}
 
-The tripwire monitors the \emph{flush latency}: the wall-clock time from
-the start of an SSTable write to the moment the file is closed and
+The tripwire monitors \emph{flush latency}: the wall-clock time from the
+start of an SSTable write to the moment the file is closed and
 registered. This value is preserved as an exponentially weighted moving
-average with an $\alpha$ of $0.3$. The very first sample initializes the
-average directly, so the signal reacts to the first slow flush rather
-than waiting for a running mean to converge.
+average with $\alpha = 0.3$. The first sample initializes the average
+directly, so the signal reacts to the first slow flush rather than
+waiting for a running mean to converge.
 
 We chose flush latency after an initial design that monitored SSTable
-count proved unusable. Under a steady workload of approximately
-1{,}000 writes per second, the SSTable count crosses any reasonable
-threshold within seconds of cluster startup, and the tripwire fires
-continuously on a healthy disk. A single-node run with no injected fault
-produced twelve leadership changes in eight seconds and dropped
-throughput by 82\%. The root cause is that SSTable count reflects
-workload, not disk health. Flush latency reflects the disk itself.
+count proved unsuitable for our workload. Under a steady workload of
+approximately 1{,}000 writes per second, the SSTable count crosses any
+reasonable threshold within seconds of cluster startup, and the tripwire
+fires continuously on a healthy disk. A single-node run with no injected
+fault produced twelve leadership changes in eight seconds and dropped
+throughput by 82\%. SSTable count reflects workload; flush latency
+reflects the workload-local storage path.
 
 When the moving average of flush latency exceeds 30\,ms, the storage
 engine sets a single atomic boolean, \texttt{storage\_degraded\_flag},
@@ -145,27 +142,73 @@ The Raft node's background tick thread polls
 \texttt{consumeStorageDegradedFlag()} at the top of every iteration. If
 the flag is set, the tick thread acquires the Raft mutex and calls
 \texttt{checkStorageDegraded()}. That function checks that the node is
-currently a leader, and if so, transitions to follower, persists the new
-state to the metadata file, and resets the election timer.
+currently a leader, and if so, transitions to follower and persists the
+new state to the metadata file.
 
-This design is deliberate. An earlier implementation invoked a callback
-from the storage thread that acquired the Raft mutex out-of-band. That
-implementation races with \texttt{AppendEntries}, \texttt{RequestVote},
-and client proposals. The atomic-flag boundary removes the race: the
-storage layer never touches Raft state, and the Raft tick thread never
-blocks on storage.
+We route the transition through the Raft tick thread to serialize it
+with other Raft state transitions. An earlier implementation invoked a
+callback from the storage thread that acquired the Raft mutex
+out-of-band, which raced with \texttt{AppendEntries},
+\texttt{RequestVote}, and client proposals. The atomic-flag boundary
+prevents the storage thread from directly mutating Raft state
+concurrently with the Raft event loop.
 
 Once the node is a follower, all subsequent client proposals return
 \texttt{false}, and the network layer translates that into a
-\texttt{-MOVED} redirect to the new leader. No client socket is closed
-or interrupted.
+\texttt{-MOVED} redirect. No client socket is closed or interrupted.
+
+\subsection{Step-Down Semantics}
+
+The mechanism does not perform a target-directed leadership transfer.
+It performs a local resignation: the node gives up leadership and lets
+the ordinary Raft election protocol choose a successor. This is a
+deliberately simpler mechanism than the leadership-transfer extension
+described in the Raft dissertation~\cite{raft_dissertation}, and the
+paper's scope is limited to what this simpler mechanism can achieve.
+
+The transition is:
+
+\begin{center}
+\texttt{Leader(term T) --storage\_degraded--> Follower(term T)}
+\end{center}
+
+The term is \textbf{not} incremented. The node retains its current term
+and persists the new state to the metadata file. Uncommitted entries in
+the leader's log are not truncated; they remain in the log and are
+reconciled by the ordinary Raft log-matching rule when the next leader
+sends \texttt{AppendEntries}. Because the node did not increment its
+term, no already-sent message from this node can be treated as coming
+from a stale term, and the node cannot preempt a legitimate leader in a
+higher term.
+
+To prevent the degraded node from immediately re-electing itself, the
+implementation records a self-exclusion deadline
+(\texttt{storage\_self\_excluded\_until\_}) of five seconds on step-down.
+The tick thread's election routine checks this deadline and returns
+without campaigning while the deadline is active. The mechanism is not
+a permanent quarantine; after the exclusion window, the node is again
+eligible to campaign, on the assumption that its storage may have
+recovered.
+
+We do not prove Raft safety for this transition. We argue informally
+that it preserves the term-monotonicity and vote-once-per-term
+invariants by not changing the term and not modifying the persisted
+vote, and we note that no committed entry can be lost because the
+transition does not truncate the log. A formal proof is future work.
 
 \section{Evaluation}
 
-We evaluate on a 3-node cluster on a single Linux host, one process per
-node on ports 8081--8083. All nodes run the current binary compiled with
-\texttt{-O2} and \texttt{C++20}. Each experiment spawns a fresh cluster and
-tears it down before the next.
+All experiments run on a 3-node cluster on a single Linux host, one
+process per node on ports 8081--8083. Nodes are compiled with
+\texttt{-O2} and \texttt{C++20}. Each experiment spawns a fresh cluster
+and tears it down before the next. The workload is a closed-loop client
+issuing sequential \texttt{SET} requests with 16 concurrent writer
+threads, keys of the form \texttt{k<N>} and values of a fixed small
+size. Warmup throughput is approximately 1{,}000 writes per second.
+
+We report medians over three trials. Three trials are not enough to
+characterize a stochastic system, and we treat the numbers below as a
+first characterization rather than a definitive measurement.
 
 \subsection{Durability Under Mid-Compaction SIGKILL}
 
@@ -179,140 +222,194 @@ completed. Every key was then read from every node.
 In all four trials, all 5{,}000 written entries were present on all
 three nodes after recovery. No entry was lost, reordered, or duplicated.
 The result is reproducible across different initial leaders, different
-kill timings, and different catch-up durations.
+kill timings, and different catch-up durations. This result is
+independent of the tripwire mechanism; it demonstrates only that the
+underlying Raft implementation preserves acknowledged writes under
+catastrophic leader loss.
 
-\subsection{Tripwire Threshold Sensitivity}
+\subsection{Tripwire Behavior Under Injected Latency}
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.48\textwidth]{figures/fig1_tripwire_sweep.pdf}
-\caption{Throughput preservation under injected fsync latency. Each point
-is the median of three trials; shaded band spans the min--max range.}
+\caption{Absolute throughput (fraction of warmup) under injected fsync
+latency. Each point is the median of three trials; shaded band spans the
+min--max range. The mechanism is not intended to fire below 30\,ms.}
 \label{fig:sweep}
 \end{figure}
 
-We measure the tripwire's reaction time as a function of the injected
-fault. For each latency value, three trials were run with the tripwire
-enabled and three with it disabled. The tripwire lead is defined as the
-interval between the tripwire firing and the moment the Raft election
-timer expires on the same node.
+We inject fsync latency by sleeping for a fixed interval before every
+SSTable flush and every WAL fsync. For each latency value we run three
+trials with the tripwire enabled and three with it disabled. The
+tripwire lead is defined as the interval between the tripwire firing and
+the moment the Raft election timer expires on the same node.
 
 \begin{table}[t]
 \centering
-\caption{Tripwire behavior under injected fsync latency. Median over
-three trials; ranges in parentheses. Lead is measured only over trials
-in which the tripwire fired.}
+\caption{Throughput under injected fsync latency, as a fraction of
+warmup. Median over three trials. ``Fires'' counts trials in which the
+tripwire activated. Lead is measured only over firing trials.}
 \label{tab:tripwire}
 \small
-\begin{tabular}{r r r r r}
+\begin{tabular}{r r r r r r}
 \toprule
-\textbf{Latency} & \textbf{ON} & \textbf{OFF} & \textbf{Ratio} & \textbf{Lead (ms)} \\
+\textbf{Latency} & \textbf{ON} & \textbf{OFF} & \textbf{Fires} & \textbf{Lead (ms)} \\
 \midrule
-0~ms   & 0.461 & 0.489 & 0.9$\times$ & -- \\
-10~ms  & 0.236 & 0.239 & 1.0$\times$ & -- \\
-30~ms  & 0.101 & 0.117 & 0.9$\times$ & 229 \\
-60~ms  & 0.210 & 0.078 & 2.7$\times$ & 186 \\
-100~ms & 0.273 & 0.048 & 5.7$\times$ & 189 \\
-150~ms & 0.395 & 0.027 & 14.6$\times$ & 207 \\
-250~ms & 0.258 & 0.003 & 86.0$\times$ & 242 \\
-500~ms & 0.152 & 0.001 & 152.0$\times$ & 249 \\
+0~ms   & 0.46 & 0.49 & 0/3 & -- \\
+10~ms  & 0.24 & 0.24 & 0/3 & -- \\
+30~ms  & 0.10 & 0.12 & 1/3 & 229 \\
+60~ms  & 0.21 & 0.08 & 3/3 & 186 \\
+100~ms & 0.27 & 0.05 & 3/3 & 189 \\
+150~ms & 0.40 & 0.03 & 3/3 & 207 \\
+250~ms & 0.26 & 0.003 & 3/3 & 242 \\
+500~ms & 0.15 & 0.001 & 2/3 & 249 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Table~\ref{tab:tripwire} reports the result. Two regimes are visible.
 
-\textbf{Below 30\,ms.} The tripwire does not improve throughput, because
-the fault is below the tripwire threshold and the tripwire rarely fires.
-This is the intended behavior: the mechanism does not fire on healthy
-disks, and does not add noise to a system that is functioning normally.
+\textbf{Below 30\,ms.} The injected fault is below the tripwire
+threshold. In the 0\,ms and 10\,ms trials the tripwire did not fire, and
+the ON and OFF configurations show similar throughput. This is the
+intended behavior: the mechanism adds no overhead when there is nothing
+to detect.
 
-\textbf{Above 60\,ms.} The tripwire fires reliably, and every fire
-precedes the Raft election timeout by 118--267\,ms. The throughput
-benefit grows monotonically with the injected latency: 2.7$\times$ at
-60\,ms, 5.7$\times$ at 100\,ms, 14.6$\times$ at 150\,ms, 86$\times$ at
-250\,ms, and 152$\times$ at 500\,ms. At the top of the range, a cluster
-without the tripwire effectively stops (0.1\% of warmup throughput),
-while the tripwire continues to serve approximately 15\% of warmup
-throughput for the duration of the fault.
+\textbf{Above 60\,ms.} The tripwire fires in every trial at 60--250\,ms
+and in two of three trials at 500\,ms. When it fires, the firing
+precedes the Raft election timeout by 118--267\,ms. The absolute
+throughput under ON is 15--40\% of warmup, while the OFF configuration
+drops to 0.1--5\%. The 152$\times$ ratio at 500\,ms reflects a
+denominator that has collapsed to 0.1\% of warmup; the absolute
+throughput of the tripwire configuration at that latency is
+approximately 15\% of warmup. We therefore recommend reading the
+absolute ON column rather than the ratio.
 
-\subsection{Recovery on Fault Clearing}
+At 500\,ms one trial did not fire. We attribute this to starvation of
+the storage engine's own worker queue: under that much delay, the flush
+that would update the EWMA signal is itself blocked behind earlier
+flushes, and the ten-second measurement window ends before the signal
+crosses threshold. This is a real limitation of the signal at severe
+degradation, and we report it in §IV.
 
-In a separate experiment, once the tripwire fired and the leader stepped
-down, we cleared the injected fault on the old leader and allowed the
-cluster to run for the remainder of the test. The cluster did not
-recover to full throughput within the ten-second window of the
-experiment. We attribute this to the serial nature of the leader's
-heartbeat loop: even after the fault is cleared, the new leader's tick
-thread blocks on RPCs to the old leader until they complete. We treat
-this as future work rather than a design defect; the primary claim of
-the paper is throughput preservation during the fault, not recovery
-after it.
+\subsection{Recovery After Fault Removal}
+
+We ran two additional trials in which we cleared the injected fault
+after the tripwire fired and allowed the cluster to run for the
+remainder of the test. Neither trial recovered to full throughput
+within the ten-second window.
+
+We attribute this to the serial nature of the leader's heartbeat loop:
+even after the fault is cleared, the new leader's tick thread waits on
+RPCs to the old leader until they complete. Under a partial fault
+(leader-only injection, in which the new leader would be genuinely
+healthy) this behavior would not be expected; under our all-nodes
+injection, the same code path that made the tripwire fire on the
+original leader is still present on the new leader, and the cluster
+remains impaired.
+
+We therefore scope the paper to \emph{throughput preservation during a
+fault}, not recovery after it. Recovery under symmetric
+fault is a design problem we do not solve, and we do not claim that the
+mechanism restores full throughput after degradation clears.
 
 \section{Threats to Validity}
 
-\textbf{Simultaneous cluster-wide fault.} Our fault injector degrades
-fsync latency on all three nodes simultaneously. In a real deployment,
-storage degradation is per-node, so the tripwire hands off to a genuinely
-healthy peer. The ON/OFF ratios we report are therefore a lower bound on
-the benefit a production system would observe.
+\textbf{All-nodes fault injection.} Our injector degrades fsync latency
+on all three nodes simultaneously. The motivating deployment scenario is
+a single degraded leader with healthy followers, which we do not
+measure. Because all three nodes experience the injected delay, our
+numbers are not a production performance estimate. We report them as a
+controlled measurement of mechanism behavior under a symmetric fault.
 
-\textbf{Occasional non-firing at 500\,ms.} In one of three trials at
-500\,ms of injected latency, the tripwire did not fire at all. Under
-that much delay, the storage engine's own worker queue can be starved
-enough that the flush-latency signal does not update within the
-ten-second window. The median result still shows a 152$\times$
-improvement, but the tail behavior at 500\,ms is less predictable than
-at 100--250\,ms.
+\textbf{Tripwire failure at 500\,ms.} In one of three trials at 500\,ms
+the tripwire did not fire within the ten-second window. The likely cause
+is starvation of the flush queue that would update the EWMA. A longer
+measurement window, a lower threshold, or a signal derived from the WAL
+path rather than the SSTable path may address this. We report it as an
+open limitation.
 
-\textbf{Localhost measurement.} All experiments run on a single machine.
-Absolute latencies include scheduler noise from the co-resident test
-harness. We report medians and treat absolute numbers as
-machine-dependent. The relative ordering of configurations is stable
-across all trials.
+\textbf{No recovery guarantee.} The mechanism is a fault-avoidance
+mechanism, not a fault-recovery mechanism. Once storage degradation
+clears, the system does not automatically return to the pre-fault
+performance state within the ten-second window we tested.
+
+\textbf{Localhost topology.} All experiments run on a single machine.
+The co-resident harness and the three nodes share CPU, cache, and I/O
+scheduler. Absolute latencies include this interference. The relative
+ordering of ON and OFF configurations was consistent across the trials
+we ran, but three trials are not sufficient to establish statistical
+stability.
 
 \textbf{Parameter specificity.} The results hold for a MemTable flush
-threshold of 50 keys, a tripwire threshold of 30\,ms, and an EWMA
-smoothing factor of 0.3. We have not exhaustively explored the
-sensitivity of the mechanism to these parameters.
+threshold of 50 keys, an EWMA smoothing factor of 0.3, and a tripwire
+threshold of 30\,ms. We have not systematically explored the sensitivity
+of the mechanism to these parameters. The threshold of 30\,ms in
+particular was chosen by inspection of the healthy-disk flush latency
+distribution and not by a formal calibration procedure.
+
+\textbf{No comparison against production systems.} The paper does not
+compare against etcd, TiKV, or CockroachDB on the same hardware. We
+cite those systems as motivation and as prior work, but we do not claim
+that our mechanism outperforms them in production deployments.
 
 \section{Related Work}
 
-\textbf{Consensus and storage.} Raft~\cite{raft} specifies the consensus
-protocol but leaves storage integration to the implementation. etcd's
-operational guidance~\cite{etcd} documents the disk-latency-to-leadership
-path as an operator-visible concern. TiKV~\cite{tikv} implements
-RocksDB write-stall flow control that throttles incoming requests before
-compaction pressure destabilizes the Raftstore. Our mechanism is
-complementary: where TiKV throttles clients, we hand off leadership.
+\textbf{Raft and leadership transfer.} Raft~\cite{raft} specifies the
+consensus protocol but leaves storage integration to the
+implementation. The Raft dissertation~\cite{raft_dissertation}
+describes a leadership-transfer extension that identifies a target
+follower, brings its log up to date, and induces it to campaign via
+\texttt{TimeoutNow}. etcd's Raft implementation exposes this through
+\texttt{MsgTransferLeader}, and HashiCorp's Raft library exposes it
+through \texttt{LeadershipTransfer}~\cite{hashicorp_raft}. Our
+mechanism is deliberately simpler: it performs a local step-down and
+lets the ordinary election protocol choose a successor. We do not
+implement target-directed transfer, and we do not claim to.
+
+\textbf{Storage and consensus coupling.} etcd's operational guidance
+documents the disk-latency-to-leadership path and recommends monitoring
+\texttt{wal\_fsync\_duration\_seconds}~\cite{etcd}. TiKV implements
+RocksDB write-stall flow control that throttles incoming requests
+before compaction pressure destabilizes the
+Raftstore~\cite{tikv}. CockroachDB applies node-level admission control
+to prevent local resource overload from starving the liveness
+path~\cite{cockroachdb}. These systems respond to storage pressure by
+throttling work. Our prototype instead responds by changing leadership
+eligibility.
 
 \textbf{LSM-tree design.} The LSM-tree~\cite{lsm} introduced the
 leveled compaction strategy that underlies RocksDB, LevelDB, and
 Cassandra. Our storage engine is a small implementation of that design,
-extended with lock-striped sharding and a persistent async flush worker.
+extended with lock-striped sharding and a persistent async flush
+worker.
 
 \textbf{Gray failures.} Huang et al.~\cite{gray_failures} characterized
 Gray Failures in cloud-scale systems and proposed differential
 observability as a detection method. Our tripwire is a domain-specific
-instantiation of the same idea: a component publishes a signal about its
-own health that a peer can act on.
+instance of the same idea: a component publishes a signal about its own
+health that a peer can act on.
 
 \section{Conclusion}
 
-We presented Compaction-Aware Consensus, a mechanism by which an LSM-tree
-storage engine can signal its own degradation to a Raft consensus layer
-without violating Raft's state-transition invariants. The signal is an
-atomic flag set by the storage engine and consumed by the Raft tick
-thread. Under injected fsync latency of 100--500\,ms, the mechanism
-preserves 5.7$\times$ to 152$\times$ the throughput of an otherwise
-identical cluster without it, and fires 118--267\,ms before Raft's
-natural election timeout in every trial in which it fires. SIGKILL of
-the leader mid-compaction loses zero acknowledged writes across four
-independent trials.
+We presented a mechanism by which an LSM-tree storage engine can signal
+its own degradation to a Raft consensus layer. The signal is an atomic
+flag set by the storage engine and consumed by the Raft tick thread,
+which performs a leader step-down under the same mutex that guards other
+Raft transitions. On a 3-node localhost cluster under injected fsync
+latency of 100--500\,ms, the mechanism preserves 15--40\% of warmup
+throughput where an identical cluster without it drops to 0.1--5\%. The
+tripwire fires 118--267\,ms before Raft's natural election timeout in
+every trial where it fires, and it fires in two of three trials at
+500\,ms. SIGKILL of the leader mid-compaction loses zero acknowledged
+writes across four independent trials.
 
-The result is a small, self-contained demonstration that storage health
-is a useful input to consensus leadership decisions, and that a
-single-bit event boundary is sufficient to bridge the two layers safely.
+The result is a small, self-contained demonstration that an LSM storage
+health signal can be communicated to a Raft event loop through a
+single-bit atomic boundary, and that under controlled symmetric
+degradation this reduces the throughput cost of the fault. We do not
+claim a new consensus mechanism, a production performance improvement,
+or a recovery guarantee.
 
 \begin{thebibliography}{00}
 
@@ -326,18 +423,31 @@ D. Ongaro and J. Ousterhout, ``In search of an understandable consensus
 algorithm,'' in \textit{2014 USENIX Annual Technical Conference (USENIX
 ATC 14)}, 2014, pp. 305--319.
 
+\bibitem{raft_dissertation}
+D. Ongaro, ``Consensus: Bridging theory and practice,'' Ph.D.
+dissertation, Stanford University, 2014.
+
+\bibitem{hashicorp_raft}
+HashiCorp, ``Raft: A Go implementation of the Raft consensus
+protocol,'' GitHub repository, 2024. [Online]. Available:
+https://github.com/hashicorp/raft
+
 \bibitem{gray_failures}
 P. Huang et al., ``Gray failure: The achilles' heel of cloud-scale
 systems,'' in \textit{Proceedings of the 16th Workshop on Hot Topics in
 Operating Systems (HotOS)}, 2017, pp. 136--141.
 
 \bibitem{etcd}
-etcd Authors, ``etcd Documentation: Tuning,'' 2023. [Online]. Available:
-https://etcd.io/docs/
+etcd Authors, ``etcd Documentation: Tuning,'' 2023. [Online].
+Available: https://etcd.io/docs/
 
 \bibitem{tikv}
 TiKV Authors, ``TiKV Documentation: Raftstore and RocksDB Tuning,''
 2023. [Online]. Available: https://tikv.org/docs/
+
+\bibitem{cockroachdb}
+CockroachDB Authors, ``CockroachDB Documentation: Admission Control,''
+2024. [Online]. Available: https://www.cockroachlabs.com/docs/
 
 \end{thebibliography}
 
