@@ -26,7 +26,7 @@ logs/
 *.toc
 
 # pdflatex run log (the raw experiment logs are NOT ignored
-# — see exp_*.log which stays tracked for reproducibility)
+# see exp_*.log which stays tracked for reproducibility)
 /paper.log
 
 # Python cache
