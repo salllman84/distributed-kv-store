@@ -1,4 +1,16 @@
 **Paper:** [10.5281/zenodo.22976936](https://doi.org/10.5281/zenodo.22976936)
+
+## Statement of Need
+
+Raft-based distributed key-value stores can lose leadership when local
+storage degrades, a phenomenon documented operationally by etcd and TiKV
+but not proactively mitigated in open-source prototypes. This software
+provides a reference implementation of a storage-health signal that
+couples an LSM-tree flush-latency monitor to a Raft event loop through a
+single atomic boundary. It is intended for researchers studying
+storage-consensus coupling, and for practitioners evaluating whether
+proactive leader step-down is worth implementing in their own systems.
+
 # Compaction-Aware Consensus
 
 A C++20 research prototype exploring **storage-triggered leader step-down in a Raft-based distributed key-value store**.
