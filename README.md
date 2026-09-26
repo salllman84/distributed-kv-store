@@ -1,5 +1,5 @@
 **Paper:** [10.5281/zenodo.22976936](https://doi.org/10.5281/zenodo.22976936)
-
+**Status:** Under review at 2026 IEEE ICOSST (Paper ID 76). Preprint available at DOI 10.5281/zenodo.22976936.
 ## Statement of Need
 
 Raft-based distributed key-value stores can lose leadership when local
