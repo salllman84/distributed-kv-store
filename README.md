@@ -1,3 +1,4 @@
+**Paper:** [10.5281/zenodo.22976936](https://doi.org/10.5281/zenodo.22976936)
 # Compaction-Aware Consensus
 
 A C++20 research prototype exploring **storage-triggered leader step-down in a Raft-based distributed key-value store**.
